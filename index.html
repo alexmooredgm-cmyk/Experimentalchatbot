@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alex — Modular Metacognitive Chatbot</title>
+
+  <!-- Natural.js: NLP / sentiment — pinned to 6.12.0 to avoid @latest drift -->
+  <script src="https://unpkg.com/natural@6.12.0/lib/natural.js"></script>
+
+  <style>
+    /* ── CSS Variables & Reset ─────────────────────────────────── */
+    :root {
+      --font-size-base: 16px;
+      --line-height-base: 1.6;
+      --sp: 8px;
+      --radius: 8px;
+      --c-text: #333;
+      --c-text-sub: #666;
+      --c-bg: #f5f5f5;
+      --c-bg-dark: #eee;
+      --c-border: #ccc;
+      --c-btn: #007bff;
+      --c-btn-text: #fff;
+      --c-btn-hover: #0056b3;
+      --mood-happy: #4CAF50;
+      --mood-neutral: #FFC107;
+      --mood-frustrated: #F44336;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+                   Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      font-size: var(--font-size-base);
+      line-height: var(--line-height-base);
+      color: var(--c-text);
+      margin: 0;
+      background: var(--c-bg);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Status Bar ─────────────────────────────────────────────── */
+    #status-bar {
+      width: 100%;
+      background: #333;
+      color: #fff;
+      padding: var(--sp) calc(2 * var(--sp));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9em;
+      box-shadow: 0 2px 4px rgba(0,0,0,.15);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    #status-bar .mood-pill {
+      height: 12px;
+      width: 56px;
+      border-radius: var(--radius);
+      background: var(--mood-neutral);
+      transition: background .4s ease;
+      margin-left: var(--sp);
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    #status-mood-label { margin-left: 6px; }
+
+    #status-votes { font-size: 0.85em; opacity: .8; }
+
+    /* ── Chat Container ─────────────────────────────────────────── */
+    #chat-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 800px;
+      width: 100%;
+      margin: calc(2 * var(--sp)) auto;
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: 0 0 15px rgba(0,0,0,.07);
+      overflow: hidden;
+    }
+
+    /* ── Chat Window ────────────────────────────────────────────── */
+    #chat-window {
+      flex-grow: 1;
+      min-height: 420px;
+      max-height: 60vh;
+      padding: calc(2 * var(--sp));
+      overflow-y: auto;
+      border-bottom: 1px solid var(--c-bg-dark);
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Messages ───────────────────────────────────────────────── */
+    .message {
+      padding: var(--sp) calc(1.5 * var(--sp));
+      margin-bottom: var(--sp);
+      border-radius: var(--radius);
+      max-width: 75%;
+      line-height: 1.5;
+      word-wrap: break-word;
+      position: relative;
+      transition: background-color .4s ease;
+    }
+
+    .user-message {
+      background: var(--c-btn);
+      color: var(--c-btn-text);
+      margin-left: auto;
+    }
+
+    .bot-message {
+      background: var(--c-bg-dark);
+      color: var(--c-text);
+      margin-right: auto;
+      padding-bottom: calc(2.2 * var(--sp)); /* room for feedback row */
+    }
+
+    /* bot message text node wrapper */
+    .bot-message .msg-text {
+      white-space: pre-wrap;
+    }
+
+    /* ── Feedback Buttons ───────────────────────────────────────── */
+    .feedback-row {
+      position: absolute;
+      bottom: 4px;
+      right: 8px;
+      display: flex;
+      gap: 4px;
+    }
+
+    .feedback-row button {
+      font-size: 0.78em;
+      padding: 2px 6px;
+      border: 1px solid var(--c-border);
+      border-radius: 4px;
+      cursor: pointer;
+      background: #fff;
+      line-height: 1.4;
+      transition: background .2s;
+    }
+
+    .feedback-row button:hover { background: #e0e0e0; }
+    .feedback-row button:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0,123,255,.4);
+    }
+
+    /* Module tag (small annotation) */
+    .module-tag {
+      font-size: 0.76em;
+      color: var(--c-text-sub);
+      display: block;
+      margin-top: 4px;
+    }
+
+    /* ── Input Area ─────────────────────────────────────────────── */
+    #input-area {
+      display: flex;
+      padding: calc(1.5 * var(--sp));
+      gap: var(--sp);
+      background: #fff;
+    }
+
+    /* Visually-hidden label for accessibility */
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    #chat-input {
+      flex-grow: 1;
+      padding: var(--sp);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      font-size: var(--font-size-base);
+      line-height: var(--line-height-base);
+      resize: vertical;
+      min-height: 40px;
+      max-height: 150px;
+      font-family: inherit;
+    }
+
+    #chat-input:focus {
+      outline: none;
+      border-color: var(--c-btn);
+      box-shadow: 0 0 0 3px rgba(0,123,255,.25);
+    }
+
+    #send-button {
+      padding: var(--sp) calc(2 * var(--sp));
+      background: var(--c-btn);
+      color: var(--c-btn-text);
+      border: none;
+      border-radius: var(--radius);
+      font-size: var(--font-size-base);
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s;
+      min-width: 80px;
+    }
+
+    #send-button:hover { background: var(--c-btn-hover); }
+    #send-button:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(0,123,255,.5);
+    }
+
+    /* ── Meta / Thought Panel ───────────────────────────────────── */
+    #meta-panel-container {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 320px;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: var(--radius) 0 0 0;
+      font-family: monospace;
+      z-index: 999;
+      box-shadow: -2px -2px 8px rgba(0,0,0,.1);
+    }
+
+    #meta-panel-header {
+      padding: 6px 8px;
+      background: #ddd;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: var(--radius) 0 0 0;
+    }
+
+    #meta-panel-header span { font-size: 0.9em; }
+
+    #meta-toggle-btn {
+      border: none;
+      background: #555;
+      color: #fff;
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 0.8em;
+      padding: 2px 8px;
+    }
+
+    #meta-panel-content {
+      margin: 0;
+      padding: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #fff;
+      border-top: 1px solid #ccc;
+      font-size: 11px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      display: block; /* toggled via JS */
+    }
+
+    /* ── Responsive ─────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      :root { --font-size-base: 15px; }
+
+      #chat-container {
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      #chat-window { padding: var(--sp); }
+
+      .message { max-width: 90%; }
+
+      #input-area { padding: var(--sp); }
+
+      #send-button { min-width: 70px; padding: var(--sp) calc(1.5 * var(--sp)); }
+
+      #meta-panel-container { width: 90%; right: 5%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Status Bar ──────────────────────────────────────────────── -->
+  <div id="status-bar" role="status" aria-live="polite">
+    <div>
+      <strong>Alex</strong> · Metacognitive Chatbot
+      <span class="mood-pill" id="status-mood-pill" title="Current mood"></span>
+      <span id="status-mood-label">Mood: neutral</span>
+    </div>
+    <div id="status-votes">👍 0 &nbsp; 👎 0</div>
+  </div>
+
+  <!-- ── Chat Container ─────────────────────────────────────────── -->
+  <main id="chat-container">
+    <div
+      id="chat-window"
+      role="log"
+      aria-live="polite"
+      aria-label="Chat messages"
+    ></div>
+
+    <div id="input-area">
+      <label for="chat-input" class="sr-only">Your message</label>
+      <textarea
+        id="chat-input"
+        rows="1"
+        placeholder="Type your message and press Enter…"
+        aria-label="Type your message"
+      ></textarea>
+      <button id="send-button" aria-label="Send message">Send</button>
+    </div>
+  </main>
+
+  <!-- ── Meta Panel (Internal Thoughts) ────────────────────────── -->
+  <div id="meta-panel-container" role="complementary" aria-label="Internal thought trace">
+    <div id="meta-panel-header" role="button" tabindex="0" aria-expanded="true">
+      <span>🧠 Internal Thoughts</span>
+      <button id="meta-toggle-btn" aria-label="Toggle thought panel">Hide</button>
+    </div>
+    <pre id="meta-panel-content">No thoughts recorded yet.</pre>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SINGLE SCRIPT BLOCK — all modules + coordinator + UI
+       ════════════════════════════════════════════════════════════ -->
+  <script>
+  /* ================================================================
+     SECTION 1 — selfModel  (global singleton, spec §Core data)
+     ================================================================ */
+  const selfModel = {
+    identity: {
+      name: 'Alex-Web-Agent',
+      version: '0.1',
+      description: 'Browser-only modular chatbot with simulated metacognition'
+    },
+    capabilities: [
+      'Basic NLU (rule-based intents)',
+      'Sentiment-based emotion simulation',
+      'Short/long-term memory via Web Storage',
+      'Self-reflection text',
+      'Simple policy adaptation from feedback'
+    ],
+    limitations: [
+      'No real backend or LLM',
+      'Runs only in browser',
+      'Heuristic reasoning, no deep understanding',
+      'Non-persistent learning beyond localStorage heuristics'
+    ],
+    state: {
+      energy: 100,
+      confidence: 80,
+      lastFeedback: null,
+      totalUpVotes: 0,
+      totalDownVotes: 0,
+      policy: {
+        verbosityLevel: 0.5,   // 0–1
+        humorLevel: 0.3,       // 0–1
+        cautionLevel: 0.4      // 0–1
+      }
+    },
+    emotionalVector: {
+      happiness: 0.5,
+      curiosity: 0.7,
+      frustration: 0.0
+    },
+    updateState(update) { Object.assign(this.state, update); },
+    updateEmotions(update) {
+      // Clamp every incoming emotion value to [0, 1] to prevent drift
+      const clamped = {};
+      for (const [k, v] of Object.entries(update)) {
+        clamped[k] = Math.max(0, Math.min(1, v));
+      }
+      Object.assign(this.emotionalVector, clamped);
+    }
+  };
+
+  /* ================================================================
+     SECTION 2 — MetaLog  (metacognitive trace)
+     ================================================================ */
+  const MetaLog = {
+    _steps: [],
+    maxSteps: 200,
+
+    log(stage, detail) {
+      this._steps.push({ timestamp: new Date().toISOString(), stage, detail });
+      if (this._steps.length > this.maxSteps) this._steps.shift();
+      // Refresh panel if visible
+      if (window._metaPanelVisible) this._refreshPanel();
+    },
+
+    recent(n = 10) {
+      return this._steps.slice(-n)
+        .map(e => `[${new Date(e.timestamp).toLocaleTimeString()}] [${e.stage}] ${e.detail}`)
+        .join('\n');
+    },
+
+    _refreshPanel() {
+      // Guard: panel element may not exist if logs fire before DOM is ready
+      if (typeof document === 'undefined') return;
+      const el = document.getElementById('meta-panel-content');
+      if (el) el.textContent = this.recent(10) || 'No thoughts yet.';
+    }
+  };
+
+  // Expose for any legacy references
+  window.MetaLog = MetaLog;
+
+  /* ================================================================
+     SECTION 3 — MemoryModule
+     ================================================================ */
+  class MemoryModule {
+    constructor() {
+      try {
+        this.shortTerm = JSON.parse(sessionStorage.getItem('shortTermMemory') || '[]');
+        this.longTerm  = JSON.parse(localStorage.getItem('longTermMemory')   || '[]');
+      } catch (e) {
+        this.shortTerm = [];
+        this.longTerm  = [];
+      }
+    }
+
+    recall(type, key) {
+      const mem = type === 'short' ? this.shortTerm : this.longTerm;
+      const hit = mem.slice().reverse().find(e => e.key === key);
+      return hit ? hit.value : null;
+    }
+
+    store(type, key, value) {
+      const mem = type === 'short' ? this.shortTerm : this.longTerm;
+      const storageKey = type === 'short' ? 'shortTermMemory' : 'longTermMemory';
+      const store = type === 'short' ? sessionStorage : localStorage;
+
+      // Build candidate array first; only mutate in-memory state if
+      // storage write succeeds (or storage is unavailable but we accept it).
+      const candidate = [...mem, { key, value }];
+      try {
+        store.setItem(storageKey, JSON.stringify(candidate));
+        // Storage succeeded — commit to in-memory array
+        mem.push({ key, value });
+      } catch (e) {
+        // Storage is full or blocked — still push to in-memory so the session
+        // continues to work, but log the failure so it's not silently invisible.
+        console.warn(`MemoryModule: ${type} storage write failed (quota/blocked). In-memory only.`, e);
+        mem.push({ key, value });
+      }
+      MetaLog.log('memory', `store(${type}, ${key})`);
+    }
+  }
+
+  /* ================================================================
+     SECTION 4 — PerceptionModule
+     ================================================================ */
+  class PerceptionModule {
+    perceive(input) {
+      const time = new Date().toLocaleTimeString();
+      MetaLog.log('perception', `Input received at ${time}: "${input.slice(0, 60)}${input.length > 60 ? '…' : ''}"`);
+      return `Perceiving: "${input}" at ${time}.`;
+    }
+  }
+
+  /* ================================================================
+     SECTION 5 — EmotionModule
+     (Natural.js SentimentAnalyzer — AFINN, lazy-initialized)
+     ================================================================ */
+  class EmotionModule {
+    constructor() {
+      // Analyzer is lazy: initialized on first use so Natural.js
+      // loading delays don't cause a constructor crash.
+      this._analyzer = null;
+    }
+
+    /** Lazy getter — tries once per call until Natural.js is ready. */
+    _getAnalyzer() {
+      if (this._analyzer) return this._analyzer;
+      if (typeof natural !== 'undefined') {
+        try {
+          this._analyzer = new natural.SentimentAnalyzer(
+            'English', natural.PorterStemmer, 'afinn'
+          );
+        } catch (e) {
+          console.warn('EmotionModule: SentimentAnalyzer init failed.', e);
+        }
+      }
+      return this._analyzer;
+    }
+
+    /** Clamp a value to [0, 1] — prevents emotion vector drift. */
+    _clamp(v) { return Math.max(0, Math.min(1, v)); }
+
+    analyzeSentiment(text) {
+      let score = 0;
+      let label = 'Neutral';
+      const analyzer = this._getAnalyzer();
+
+      if (analyzer) {
+        try {
+          score = analyzer.getSentiment(text.split(/\s+/));
+          if (score > 0) label = 'Positive';
+          else if (score < 0) label = 'Negative';
+        } catch (e) { /* ignore tokenization edge cases */ }
+      }
+
+      // Update emotional vector — all values clamped to [0, 1]
+      selfModel.updateEmotions({
+        happiness:   this._clamp(score > 0 ? 0.8 : score < 0 ? 0.2 : 0.5),
+        frustration: this._clamp(score < 0 ? 0.5 : 0.0)
+      });
+
+      MetaLog.log('emotion', `Sentiment ${label} (score: ${score.toFixed(2)})`);
+      return { label, score, description: `Sentiment: ${label} (score: ${score.toFixed(2)}).` };
+    }
+  }
+
+  /* ================================================================
+     SECTION 6 — ReasoningModule
+     ================================================================ */
+  class ReasoningModule {
+    decide(input) {
+      let tokens = [];
+      try {
+        const tokenizer = new natural.WordTokenizer();
+        tokens = tokenizer.tokenize(input);
+      } catch (e) {
+        tokens = input.split(/\s+/);
+      }
+
+      const lower = tokens.map(t => t.toLowerCase());
+      let reasoning = `Reasoning over tokens: ${tokens.join(', ')}.`;
+
+      if (lower.includes('plan')) {
+        reasoning = 'Planning: Analyzing your request and forming a rough plan.';
+      } else if (lower.includes('help') || lower.includes('how')) {
+        reasoning = 'Assistance intent detected: formulating a helpful reply.';
+      }
+
+      MetaLog.log('reasoning', reasoning);
+      return reasoning;
+    }
+  }
+
+  /* ================================================================
+     SECTION 7 — SelfReflectionModule
+     ================================================================ */
+  class SelfReflectionModule {
+    reflect(currentResponseSummary) {
+      const high = Math.random() > 0.5;
+      selfModel.updateState({ confidence: high ? 90 : 60 });
+
+      const reflection =
+        `Reflection: Confidence estimated as ${high ? 'High' : 'Low'}. ` +
+        `Core capabilities: ${selfModel.capabilities.slice(0, 3).join(', ')}.`;
+
+      MetaLog.log('reflection', currentResponseSummary
+        ? currentResponseSummary.slice(0, 80)
+        : reflection);
+      return reflection;
+    }
+  }
+
+  /* ================================================================
+     SECTION 8 — NLUModule  (rule-based intent + entity classifier)
+     ================================================================ */
+  class NLUModule {
+    constructor(emotionModule) {
+      this.emotionModule = emotionModule;
+      this._intentRules = [
+        { rex: /(who|what) are you/i,                          intent: 'ask_self' },
+        { rex: /\b(show thoughts|debug|how did you decide)\b/i,intent: 'ask_thoughts' },
+        { rex: /(how do you feel|your mood|your emotion|mood)/i,intent: 'ask_mood' },
+        { rex: /\bremember[\s:]+(.+)/i,                        intent: 'remember' },
+        { rex: /\brecall\b/i,                                  intent: 'recall' },
+        { rex: /my name is\s+([a-zA-Z0-9_-]+)/i,             intent: 'provide_name' },
+        { rex: /(i like|i prefer)\s+(.+)/i,                   intent: 'provide_preference' },
+        { rex: /(how do you see me|how do you model me|know about me)/i, intent: 'ask_tom' }
+      ];
+    }
+
+    parse(input) {
+      let intent = 'chitchat';
+      const entities = [];
+
+      for (const rule of this._intentRules) {
+        const m = input.match(rule.rex);
+        if (m) {
+          intent = rule.intent;
+          // Capture first non-full-match group as entity
+          for (let i = 1; i < m.length; i++) {
+            if (m[i]) entities.push(m[i].trim());
+          }
+          break;
+        }
+      }
+
+      const sentiment = this.emotionModule.analyzeSentiment(input);
+      MetaLog.log('nlu', `Intent=${intent}, sentiment=${sentiment.label}`);
+      return { intent, entities, sentiment, raw: input };
+    }
+  }
+
+  /* ================================================================
+     SECTION 9 — UserModel  (Theory of Mind layer)
+     ================================================================ */
+  class UserModel {
+    constructor() {
+      this.name = null;
+      this.preferences = [];
+      this.moodScore   = 0;
+      this.messageCount = 0;
+      // Restore from session if available
+      try {
+        const saved = sessionStorage.getItem('userModel_alex');
+        if (saved) Object.assign(this, JSON.parse(saved));
+      } catch (e) { /* ignore */ }
+    }
+
+    _save() {
+      try {
+        sessionStorage.setItem('userModel_alex', JSON.stringify({
+          name: this.name,
+          preferences: this.preferences,
+          moodScore: this.moodScore,
+          messageCount: this.messageCount
+        }));
+      } catch (e) { /* ignore */ }
+    }
+
+    updateFromInput(nluResult, rawInput) {
+      // Name extraction
+      if (nluResult.intent === 'provide_name' && nluResult.entities[0]) {
+        this.name = nluResult.entities[0];
+      } else {
+        const nm = rawInput.match(/my name is\s+([A-Za-z0-9_-]+)/i);
+        if (nm) this.name = nm[1];
+      }
+
+      // Preferences
+      if (nluResult.intent === 'provide_preference' && nluResult.entities.length) {
+        this.preferences.push(nluResult.entities[nluResult.entities.length - 1]);
+      }
+      if (/short answer/i.test(rawInput))        this.preferences.push('short answers');
+      if (/more detail|technical/i.test(rawInput)) this.preferences.push('technical detail');
+
+      // Running mood average
+      this.messageCount += 1;
+      const w = 1 / this.messageCount;
+      this.moodScore = (1 - w) * this.moodScore + w * (nluResult.sentiment.score || 0);
+
+      this._save();
+      MetaLog.log('usermodel', `Updated: name=${this.name}, mood=${this.moodScore.toFixed(2)}`);
+    }
+
+    summary() {
+      const moodDesc = this.moodScore > 0.3 ? 'generally positive'
+                     : this.moodScore < -0.3 ? 'generally negative'
+                     : 'mixed/neutral';
+      const namePart = this.name ? `named ${this.name}` : 'with unknown name';
+      const prefPart = this.preferences.length
+        ? `prefers ${[...new Set(this.preferences)].slice(-3).join(', ')}`
+        : 'no known preferences';
+      return `User ${namePart}, mood ${moodDesc}, ${prefPart}.`;
+    }
+  }
+
+  /* ================================================================
+     SECTION 10 — PolicyModule  (simulated learning/adaptation)
+     ================================================================ */
+  class PolicyModule {
+    constructor() {
+      this.verbosityLevel = 0.5;
+      this.humorLevel     = 0.3;
+      this.cautionLevel   = 0.4;
+      this._sync();
+    }
+
+    _clamp(v) { return Math.max(0, Math.min(1, v)); }
+
+    _sync() {
+      selfModel.updateState({
+        policy: {
+          verbosityLevel: this.verbosityLevel,
+          humorLevel:     this.humorLevel,
+          cautionLevel:   this.cautionLevel
+        },
+        totalUpVotes:   selfModel.state.totalUpVotes,
+        totalDownVotes: selfModel.state.totalDownVotes
+      });
+    }
+
+    registerFeedback(type) {
+      if (type !== 'up' && type !== 'down') return;
+
+      // Use selfModel.updateState() consistently — no direct mutation of selfModel.state
+      if (type === 'up') {
+        selfModel.updateState({
+          totalUpVotes: selfModel.state.totalUpVotes + 1,
+          lastFeedback: 'up'
+        });
+        this.verbosityLevel = this._clamp(this.verbosityLevel + 0.04);
+        this.humorLevel     = this._clamp(this.humorLevel     + 0.03);
+        this.cautionLevel   = this._clamp(this.cautionLevel   - 0.02);
+      } else {
+        selfModel.updateState({
+          totalDownVotes: selfModel.state.totalDownVotes + 1,
+          lastFeedback: 'down'
+        });
+        this.cautionLevel   = this._clamp(this.cautionLevel   + 0.08);
+        this.verbosityLevel = this._clamp(this.verbosityLevel - 0.05);
+        this.humorLevel     = this._clamp(this.humorLevel     - 0.05);
+      }
+
+      this._sync();
+      MetaLog.log('feedback', `type=${type}, policy=${JSON.stringify(selfModel.state.policy)}`);
+      renderStatusBar();
+    }
+
+    adjustPolicyOnTurn(intent, sentimentLabel) {
+      if (intent === 'ask_mood' || intent === 'ask_self') {
+        this.cautionLevel = this._clamp(this.cautionLevel - 0.05);
+      }
+      if (sentimentLabel === 'Negative') {
+        this.cautionLevel = this._clamp(this.cautionLevel + 0.08);
+        this.humorLevel   = this._clamp(this.humorLevel   - 0.05);
+      }
+      if (sentimentLabel === 'Positive') {
+        this.verbosityLevel = this._clamp(this.verbosityLevel + 0.03);
+      }
+      this._sync();
+    }
+
+    applyResponseStyle(text) {
+      let out = text;
+      if      (this.cautionLevel > 0.65) out = 'I might be mistaken, but ' + out;
+      else if (this.cautionLevel > 0.5)  out = 'It seems that ' + out;
+      if (this.verbosityLevel > 0.75) {
+        out += '\n\nFeel free to ask me to elaborate or show examples.';
+      }
+      if (this.humorLevel > 0.65) out += ' 🙂';
+      return out;
+    }
+  }
+
+  /* ================================================================
+     SECTION 11 — Coordinator  (multi-agent orchestrator)
+     ================================================================ */
+  class Coordinator {
+    constructor() {
+      this.memory     = new MemoryModule();
+      this.perception = new PerceptionModule();
+      this.emotion    = new EmotionModule();
+      this.reasoning  = new ReasoningModule();
+      this.reflection = new SelfReflectionModule();
+      this.nlu        = new NLUModule(this.emotion);
+      this.userModel  = new UserModel();
+      this.policy     = new PolicyModule();
+    }
+
+    process(input) {
+      MetaLog.log('input', `User: "${input.slice(0, 80)}"`);
+
+      // 1. NLU parse
+      const nlu = this.nlu.parse(input);
+
+      // 2. Update Theory-of-Mind user model
+      this.userModel.updateFromInput(nlu, input);
+
+      // 3. Policy adaptation for this turn
+      this.policy.adjustPolicyOnTurn(nlu.intent, nlu.sentiment.label);
+
+      // 4. Perception + Reasoning
+      const perceptionText = this.perception.perceive(input);
+      const reasoningText  = this.reasoning.decide(input);
+
+      // 5. Memory operations
+      let memPart = '';
+      if (nlu.intent === 'remember') {
+        const toRemember = nlu.entities[0] || input;
+        this.memory.store('long', 'lastInput', toRemember);
+        memPart = 'I will remember that in my long-term memory. ';
+      } else if (nlu.intent === 'recall') {
+        const recalled = this.memory.recall('long', 'lastInput');
+        memPart = recalled
+          ? `I recall you said: "${recalled}". `
+          : 'I cannot recall anything stored yet. ';
+      }
+
+      // 6. Build base response, modulated by verbosity policy
+      let base = '';
+      if (this.policy.verbosityLevel >= 0.65) {
+        base += perceptionText + '\n' + nlu.sentiment.description + '\n' + reasoningText + '\n';
+      } else {
+        base += reasoningText + ' ';
+      }
+      base += memPart;
+
+      // 7. Intent-specific content
+      if (nlu.intent === 'ask_self') {
+        base += `\nI am ${selfModel.identity.name}, version ${selfModel.identity.version}. ` +
+          `${selfModel.identity.description}. ` +
+          `My capabilities include: ${selfModel.capabilities.join('; ')}. ` +
+          `Known limitations: ${selfModel.limitations.join('; ')}.`;
+      }
+
+      if (nlu.intent === 'ask_mood') {
+        const e = selfModel.emotionalVector;
+        base += `\nMy current internal mood vector — ` +
+          `happiness: ${e.happiness.toFixed(2)}, ` +
+          `curiosity: ${e.curiosity.toFixed(2)}, ` +
+          `frustration: ${e.frustration.toFixed(2)}.`;
+      }
+
+      if (nlu.intent === 'ask_thoughts') {
+        base += '\n\n— Internal Process Trace (last 5 steps) —\n' + MetaLog.recent(5);
+      }
+
+      if (nlu.intent === 'ask_tom') {
+        base += `\nHere is how I currently model you: ${this.userModel.summary()}`;
+      }
+
+      // 8. Introspective reflection trigger
+      const lower = input.toLowerCase();
+      if (lower.includes('self-aware') || lower.includes('reflect') || lower.includes('introspect')) {
+        base += '\n' + this.reflection.reflect(base.slice(0, 100));
+      }
+
+      // 9. Name personalisation
+      if (this.userModel.name) {
+        base = `Hi ${this.userModel.name}! ` + base;
+      }
+
+      // 10. Apply policy style (hedging, humor, verbosity footer)
+      base = this.policy.applyResponseStyle(base.trim());
+
+      // 11. Compact mood suffix
+      base += `\n[mood: happiness ${selfModel.emotionalVector.happiness.toFixed(2)}]`;
+
+      MetaLog.log('output', 'Response generated.');
+      return base || 'Processing complete. Tell me more.';
+    }
+  }
+
+  /* ================================================================
+     SECTION 12 — UI helpers
+     ================================================================ */
+
+  /** Derive mood label + color from happiness score */
+  function moodFromHappiness(h) {
+    if (h >= 0.65) return { label: 'happy',      color: '#4CAF50' };
+    if (h <= 0.35) return { label: 'frustrated',  color: '#F44336' };
+    return               { label: 'neutral',      color: '#FFC107' };
+  }
+
+  /** Update the status bar to reflect current selfModel */
+  function renderStatusBar() {
+    const { happiness } = selfModel.emotionalVector;
+    const { label, color } = moodFromHappiness(happiness);
+    const pill = document.getElementById('status-mood-pill');
+    const lbl  = document.getElementById('status-mood-label');
+    const votes = document.getElementById('status-votes');
+
+    if (pill) pill.style.backgroundColor = color;
+    if (lbl)  lbl.textContent = `Mood: ${label}`;
+    if (votes) {
+      votes.innerHTML =
+        `👍 ${selfModel.state.totalUpVotes} &nbsp; 👎 ${selfModel.state.totalDownVotes}`;
+    }
+  }
+
+  /** Append a message bubble to #chat-window */
+  function addMessage(text, isUser, coordinator) {
+    const chatWindow = document.getElementById('chat-window');
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
+
+    // Set mood background colour on bot messages
+    if (!isUser) {
+      const { color } = moodFromHappiness(selfModel.emotionalVector.happiness);
+      msgDiv.style.setProperty('--msg-mood', color);
+      // Subtle left border tint
+      msgDiv.style.borderLeft = `4px solid ${color}`;
+    }
+
+    // Text content
+    const textNode = document.createElement('span');
+    textNode.classList.add('msg-text');
+    textNode.textContent = text;
+    msgDiv.appendChild(textNode);
+
+    // Feedback buttons on bot messages
+    if (!isUser && coordinator) {
+      const feedbackRow = document.createElement('div');
+      feedbackRow.classList.add('feedback-row');
+      feedbackRow.setAttribute('aria-label', 'Rate this response');
+
+      const upBtn = document.createElement('button');
+      upBtn.textContent = '👍';
+      upBtn.setAttribute('aria-label', 'Thumbs up');
+      upBtn.classList.add('feedback-up');
+
+      const dnBtn = document.createElement('button');
+      dnBtn.textContent = '👎';
+      dnBtn.setAttribute('aria-label', 'Thumbs down');
+      dnBtn.classList.add('feedback-down');
+
+      upBtn.addEventListener('click', () => {
+        coordinator.policy.registerFeedback('up');
+        // Update mood left-border to reflect new state
+        const { color } = moodFromHappiness(selfModel.emotionalVector.happiness);
+        msgDiv.style.borderLeft = `4px solid ${color}`;
+        renderStatusBar();
+      });
+
+      dnBtn.addEventListener('click', () => {
+        coordinator.policy.registerFeedback('down');
+        const { color } = moodFromHappiness(selfModel.emotionalVector.happiness);
+        msgDiv.style.borderLeft = `4px solid ${color}`;
+        renderStatusBar();
+      });
+
+      feedbackRow.appendChild(upBtn);
+      feedbackRow.appendChild(dnBtn);
+      msgDiv.appendChild(feedbackRow);
+    }
+
+    chatWindow.appendChild(msgDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  /* ================================================================
+     SECTION 13 — Meta Panel wiring
+     ================================================================ */
+  window._metaPanelVisible = true;
+
+  (function wireMetaPanel() {
+    const header    = document.getElementById('meta-panel-header');
+    const toggleBtn = document.getElementById('meta-toggle-btn');
+    const content   = document.getElementById('meta-panel-content');
+
+    function toggle() {
+      window._metaPanelVisible = !window._metaPanelVisible;
+      content.style.display = window._metaPanelVisible ? 'block' : 'none';
+      toggleBtn.textContent  = window._metaPanelVisible ? 'Hide' : 'Show';
+      header.setAttribute('aria-expanded', String(window._metaPanelVisible));
+      if (window._metaPanelVisible) MetaLog._refreshPanel();
+    }
+
+    toggleBtn.addEventListener('click', e => { e.stopPropagation(); toggle(); });
+    header.addEventListener('click',    e => { if (e.target !== toggleBtn) toggle(); });
+    header.addEventListener('keydown',  e => { if (e.key === 'Enter' || e.key === ' ') toggle(); });
+  })();
+
+  /* ================================================================
+     SECTION 14 — Boot
+     Waits for Natural.js with a polling check (max 5 s) before
+     constructing the Coordinator, so EmotionModule lazy-init has
+     the best chance of finding `natural` on first use.
+     ================================================================ */
+  (function boot() {
+    const inputEl = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-button');
+
+    /**
+     * Poll for Natural.js availability.
+     * Resolves true if found within timeout, false if CDN is unavailable.
+     */
+    function waitForNatural(timeoutMs = 5000, intervalMs = 100) {
+      return new Promise(resolve => {
+        if (typeof natural !== 'undefined') return resolve(true);
+        const deadline = Date.now() + timeoutMs;
+        const id = setInterval(() => {
+          if (typeof natural !== 'undefined') {
+            clearInterval(id);
+            resolve(true);
+          } else if (Date.now() >= deadline) {
+            clearInterval(id);
+            resolve(false); // timed out — sentiment will be disabled
+          }
+        }, intervalMs);
+      });
+    }
+
+    waitForNatural().then(naturalReady => {
+      if (!naturalReady) {
+        console.warn('Natural.js did not load within timeout — sentiment analysis disabled.');
+        MetaLog.log('system', 'Warning: Natural.js unavailable. Sentiment disabled.');
+      }
+
+      const coordinator = new Coordinator();
+      window._coordinator = coordinator; // expose for debugging
+
+      MetaLog.log('system', `Alex-Web-Agent online. Natural.js ready=${naturalReady}.`);
+      renderStatusBar();
+
+      // Welcome message
+      addMessage(
+        'Alex online. I\'m a modular metacognitive chatbot running entirely in your browser.\n' +
+        (naturalReady ? '' : '⚠️ Sentiment analysis offline (CDN unavailable).\n') +
+        'Try asking: "Who are you?", "How do you feel?", "Show thoughts", or just chat!',
+        false, coordinator
+      );
+      MetaLog._refreshPanel();
+
+      /** Send handler */
+      function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        addMessage(text, true, null);
+        coordinator.memory.store('short', 'recentInput', text);
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+
+        // Small delay to simulate pipeline processing
+        setTimeout(() => {
+          let response;
+          try {
+            response = coordinator.process(text);
+          } catch (err) {
+            response = `An internal error occurred: ${err.message}`;
+            MetaLog.log('error', err.message);
+          }
+          addMessage(response, false, coordinator);
+          renderStatusBar();
+          MetaLog._refreshPanel();
+        }, 350);
+      }
+
+      sendBtn.addEventListener('click', sendMessage);
+
+      inputEl.addEventListener('keydown', e => {
+        // Enter sends; Shift+Enter inserts newline
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // Auto-grow textarea
+      inputEl.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + 'px';
+      });
+    });
+  })();
+  </script>
+</body>
+</html>
