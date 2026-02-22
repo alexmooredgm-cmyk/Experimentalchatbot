@@ -395,12 +395,17 @@
   const MetaLog = {
     _steps: [],
     maxSteps: 200,
+    // Owned here so early log() calls during module construction
+    // can safely check visibility before the panel IIFE in Section 13 runs.
+    _panelVisible: true,
 
     log(stage, detail) {
       this._steps.push({ timestamp: new Date().toISOString(), stage, detail });
       if (this._steps.length > this.maxSteps) this._steps.shift();
-      // Refresh panel if visible
-      if (window._metaPanelVisible) this._refreshPanel();
+      // Refresh panel only if visible and DOM is available
+      if (this._panelVisible && typeof document !== 'undefined') {
+        this._refreshPanel();
+      }
     },
 
     recent(n = 10) {
@@ -476,6 +481,7 @@
   /* ================================================================
      SECTION 5 — EmotionModule
      (Natural.js SentimentAnalyzer — AFINN, lazy-initialized)
+     Falls back to a minimal keyword scorer if CDN is unavailable.
      ================================================================ */
   class EmotionModule {
     constructor() {
@@ -484,18 +490,41 @@
       this._analyzer = null;
     }
 
-    /** Lazy getter — tries once per call until Natural.js is ready. */
+    /** Lazy getter — tries once per call until Natural.js is ready.
+     *  If Natural.js never loads, installs a lightweight keyword fallback
+     *  so sentiment analysis still produces meaningful signals offline. */
     _getAnalyzer() {
       if (this._analyzer) return this._analyzer;
+
       if (typeof natural !== 'undefined') {
         try {
           this._analyzer = new natural.SentimentAnalyzer(
             'English', natural.PorterStemmer, 'afinn'
           );
+          return this._analyzer;
         } catch (e) {
           console.warn('EmotionModule: SentimentAnalyzer init failed.', e);
         }
       }
+
+      // Offline / CDN-blocked fallback: simple keyword scorer.
+      // Returns a getSentiment(tokens) interface compatible with Natural.js.
+      const POS = ['good','great','happy','excellent','love','like','nice','wonderful',
+                   'amazing','fantastic','thanks','thank','yes','awesome','glad','enjoy'];
+      const NEG = ['bad','terrible','hate','angry','sad','awful','horrible','disappointed',
+                   'frustrated','annoyed','wrong','worst','no','fail','unhappy','boring'];
+      this._analyzer = {
+        getSentiment(tokens) {
+          let score = 0;
+          tokens.forEach(t => {
+            const w = t.toLowerCase();
+            if (POS.includes(w)) score += 0.5;
+            if (NEG.includes(w)) score -= 0.5;
+          });
+          return Math.max(-1, Math.min(1, score));
+        }
+      };
+      MetaLog.log('system', 'EmotionModule: using offline keyword fallback for sentiment.');
       return this._analyzer;
     }
 
@@ -557,12 +586,22 @@
      SECTION 7 — SelfReflectionModule
      ================================================================ */
   class SelfReflectionModule {
-    reflect(currentResponseSummary) {
-      const high = Math.random() > 0.5;
-      selfModel.updateState({ confidence: high ? 90 : 60 });
+    /**
+     * @param {string} currentResponseSummary - snippet of the response being reflected on
+     * @param {number} sentimentScore - raw sentiment score from EmotionModule (-1 to 1 range)
+     */
+    reflect(currentResponseSummary, sentimentScore = 0) {
+      // Confidence is now derived from sentiment certainty rather than random.
+      // Clear positive or negative sentiment → higher confidence (the system
+      // "knows" how to interpret the signal); neutral → lower confidence.
+      const certainty = Math.abs(sentimentScore);           // 0 = neutral, 1 = strong signal
+      const confidence = Math.round(60 + certainty * 30);  // 60–90 range
+      selfModel.updateState({ confidence });
 
+      const label = confidence >= 80 ? 'High' : confidence >= 70 ? 'Medium' : 'Low';
       const reflection =
-        `Reflection: Confidence estimated as ${high ? 'High' : 'Low'}. ` +
+        `Reflection: Confidence estimated as ${label} (${confidence}/100, ` +
+        `based on sentiment certainty ${certainty.toFixed(2)}). ` +
         `Core capabilities: ${selfModel.capabilities.slice(0, 3).join(', ')}.`;
 
       MetaLog.log('reflection', currentResponseSummary
@@ -831,10 +870,11 @@
         base += `\nHere is how I currently model you: ${this.userModel.summary()}`;
       }
 
-      // 8. Introspective reflection trigger
+      // 8. Introspective reflection trigger — pass sentiment score so
+      //    SelfReflectionModule can derive confidence from signal certainty.
       const lower = input.toLowerCase();
       if (lower.includes('self-aware') || lower.includes('reflect') || lower.includes('introspect')) {
-        base += '\n' + this.reflection.reflect(base.slice(0, 100));
+        base += '\n' + this.reflection.reflect(base.slice(0, 100), nlu.sentiment.score);
       }
 
       // 9. Name personalisation
@@ -942,20 +982,20 @@
 
   /* ================================================================
      SECTION 13 — Meta Panel wiring
+     Panel visibility is owned by MetaLog._panelVisible (set in Section 2)
+     so early log() calls during construction are correctly routed.
      ================================================================ */
-  window._metaPanelVisible = true;
-
   (function wireMetaPanel() {
     const header    = document.getElementById('meta-panel-header');
     const toggleBtn = document.getElementById('meta-toggle-btn');
     const content   = document.getElementById('meta-panel-content');
 
     function toggle() {
-      window._metaPanelVisible = !window._metaPanelVisible;
-      content.style.display = window._metaPanelVisible ? 'block' : 'none';
-      toggleBtn.textContent  = window._metaPanelVisible ? 'Hide' : 'Show';
-      header.setAttribute('aria-expanded', String(window._metaPanelVisible));
-      if (window._metaPanelVisible) MetaLog._refreshPanel();
+      MetaLog._panelVisible = !MetaLog._panelVisible;
+      content.style.display = MetaLog._panelVisible ? 'block' : 'none';
+      toggleBtn.textContent  = MetaLog._panelVisible ? 'Hide' : 'Show';
+      header.setAttribute('aria-expanded', String(MetaLog._panelVisible));
+      if (MetaLog._panelVisible) MetaLog._refreshPanel();
     }
 
     toggleBtn.addEventListener('click', e => { e.stopPropagation(); toggle(); });
