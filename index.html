@@ -7,6 +7,8 @@
 
   <!-- Natural.js: NLP / sentiment — pinned to 6.12.0 to avoid @latest drift -->
   <script src="https://unpkg.com/natural@6.12.0/lib/natural.js"></script>
+  <!-- TensorFlow.js: neural intent classifier (Phase 2 NLU) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
 
   <style>
     /* ── CSS Variables & Reset ─────────────────────────────────── */
@@ -335,6 +337,42 @@
     <pre id="meta-panel-content">No thoughts recorded yet.</pre>
   </div>
 
+  <!-- ── Dev Neural Training Panel ─────────────────────────────── -->
+  <div id="dev-panel" style="
+    position:fixed; bottom:0; left:0; width:260px;
+    background:#1e1e2e; color:#cdd6f4; font-family:monospace;
+    font-size:11px; border-radius:0 8px 0 0; border:1px solid #45475a;
+    z-index:998; box-shadow:2px -2px 8px rgba(0,0,0,.3);">
+    <div id="dev-panel-header" style="
+      padding:5px 8px; background:#313244; cursor:pointer;
+      display:flex; justify-content:space-between; align-items:center;
+      border-radius:0 8px 0 0;" role="button" tabindex="0">
+      <span>⚗️ Neural NLU Dev</span>
+      <button id="dev-toggle-btn" style="
+        border:none; background:#45475a; color:#cdd6f4;
+        cursor:pointer; border-radius:3px; font-size:10px; padding:2px 6px;"
+        aria-label="Toggle dev panel">Hide</button>
+    </div>
+    <div id="dev-panel-body" style="padding:8px;">
+      <div id="neural-status" style="margin-bottom:6px; color:#a6e3a1;">
+        ⏳ Checking for saved model…
+      </div>
+      <button id="btn-train-neural" style="
+        width:100%; padding:5px; background:#89b4fa; color:#1e1e2e;
+        border:none; border-radius:4px; cursor:pointer; font-size:11px;
+        font-family:monospace; margin-bottom:4px;">
+        🚀 Train Neural NLU (seed data)
+      </button>
+      <button id="btn-train-with-feedback" style="
+        width:100%; padding:5px; background:#a6e3a1; color:#1e1e2e;
+        border:none; border-radius:4px; cursor:pointer; font-size:11px;
+        font-family:monospace;">
+        ➕ Train with 👍 conversation data
+      </button>
+      <div id="train-progress" style="margin-top:6px; color:#f9e2af; min-height:16px;"></div>
+    </div>
+  </div>
+
   <!-- ════════════════════════════════════════════════════════════
        SINGLE SCRIPT BLOCK — all modules + coordinator + UI
        ════════════════════════════════════════════════════════════ -->
@@ -652,6 +690,267 @@
   }
 
   /* ================================================================
+     SECTION 7b — NeuralNLU
+     A small TensorFlow.js bag-of-words intent classifier.
+
+     Design principles:
+     - Coordinator.process stays SYNCHRONOUS. The neural model pre-caches
+       its prediction for the current input in _cachedIntent so NLUModule
+       can read it without awaiting.
+     - Rule-based NLU remains primary. Neural prediction only overrides
+       when its confidence exceeds CONFIDENCE_THRESHOLD (0.70).
+     - Training is gated behind a dev-only panel — visitors never trigger it.
+     - Trained weights are stored in IndexedDB via TF.js, so the model
+       survives page reloads without retraining.
+     ================================================================ */
+  const NeuralNLU = (() => {
+    // ── Intent registry (must match NLUModule._intentRules intents) ──
+    const INTENTS = [
+      'ask_self', 'ask_mood', 'ask_thoughts', 'remember', 'recall',
+      'provide_name', 'provide_preference', 'ask_tom',
+      'gratitude', 'user_apology', 'humor_request', 'continue_topic',
+      'time_query', 'export_data', 'ask_metrics', 'chitchat'
+    ];
+    const INTENT_TO_IDX = Object.fromEntries(INTENTS.map((n, i) => [n, i]));
+    const NUM_CLASSES    = INTENTS.length;
+    const CONFIDENCE_THRESHOLD = 0.70;
+    const MODEL_KEY      = 'indexeddb://alex-intent-model';
+
+    // ── Seed training data (curated; add more to improve accuracy) ──
+    const SEED_DATA = [
+      // ask_self
+      { text: 'who are you',                  intent: 'ask_self' },
+      { text: 'what are you',                 intent: 'ask_self' },
+      { text: 'tell me about yourself',       intent: 'ask_self' },
+      { text: 'what can you do',              intent: 'ask_self' },
+      { text: 'describe yourself',            intent: 'ask_self' },
+      // ask_mood
+      { text: 'how do you feel',              intent: 'ask_mood' },
+      { text: 'what is your mood',            intent: 'ask_mood' },
+      { text: 'are you happy',                intent: 'ask_mood' },
+      { text: 'what is your current emotion', intent: 'ask_mood' },
+      // ask_thoughts
+      { text: 'show thoughts',                intent: 'ask_thoughts' },
+      { text: 'debug',                        intent: 'ask_thoughts' },
+      { text: 'how did you decide that',      intent: 'ask_thoughts' },
+      { text: 'show internal thoughts',       intent: 'ask_thoughts' },
+      // remember
+      { text: 'remember the meeting is at 3', intent: 'remember' },
+      { text: 'remember my favourite color is blue', intent: 'remember' },
+      { text: 'remember this',                intent: 'remember' },
+      // recall
+      { text: 'recall what I told you',       intent: 'recall' },
+      { text: 'what did you remember',        intent: 'recall' },
+      { text: 'do you recall',                intent: 'recall' },
+      // provide_name
+      { text: 'my name is Alex',              intent: 'provide_name' },
+      { text: 'call me Jordan',               intent: 'provide_name' },
+      { text: 'my name is Sam',               intent: 'provide_name' },
+      // provide_preference
+      { text: 'I like short answers',         intent: 'provide_preference' },
+      { text: 'I prefer technical detail',    intent: 'provide_preference' },
+      { text: 'I like concise responses',     intent: 'provide_preference' },
+      // ask_tom
+      { text: 'how do you see me',            intent: 'ask_tom' },
+      { text: 'how do you model me',          intent: 'ask_tom' },
+      { text: 'what do you know about me',    intent: 'ask_tom' },
+      // gratitude
+      { text: 'thanks',                       intent: 'gratitude' },
+      { text: 'thank you so much',            intent: 'gratitude' },
+      { text: 'I appreciate that',            intent: 'gratitude' },
+      { text: 'cheers',                       intent: 'gratitude' },
+      // user_apology
+      { text: 'sorry about that',             intent: 'user_apology' },
+      { text: 'my bad',                       intent: 'user_apology' },
+      { text: 'I apologize',                  intent: 'user_apology' },
+      // humor_request
+      { text: 'tell me a joke',               intent: 'humor_request' },
+      { text: 'say something funny',          intent: 'humor_request' },
+      { text: 'make me laugh',                intent: 'humor_request' },
+      // continue_topic
+      { text: 'tell me more',                 intent: 'continue_topic' },
+      { text: 'elaborate please',             intent: 'continue_topic' },
+      { text: 'continue',                     intent: 'continue_topic' },
+      // time_query
+      { text: 'what time is it',              intent: 'time_query' },
+      { text: 'current time',                 intent: 'time_query' },
+      // export_data
+      { text: 'export training data',         intent: 'export_data' },
+      { text: 'download conversation log',    intent: 'export_data' },
+      // ask_metrics
+      { text: 'show metrics',                 intent: 'ask_metrics' },
+      { text: 'how accurate are you',         intent: 'ask_metrics' },
+      { text: 'show stats',                   intent: 'ask_metrics' },
+      // chitchat
+      { text: 'hello',                        intent: 'chitchat' },
+      { text: 'hi there',                     intent: 'chitchat' },
+      { text: 'good morning',                 intent: 'chitchat' },
+      { text: 'what is the meaning of life',  intent: 'chitchat' },
+      { text: 'just chatting',                intent: 'chitchat' },
+    ];
+
+    // ── Internal state ──────────────────────────────────────────────
+    let _vocab     = new Map();   // word → index (1-based; 0 = unknown)
+    let _vocabSize = 1;
+    let _model     = null;        // tf.LayersModel or null
+    let _ready     = false;       // true once model is trained/loaded
+    // Synchronous prediction cache: populated by primeForInput()
+    let _cachedInput  = null;
+    let _cachedIntent = null;
+    let _cachedConf   = 0;
+
+    // ── Vocabulary helpers ──────────────────────────────────────────
+    function _tokenize(text) {
+      return text.toLowerCase().split(/\s+/).map(t => t.replace(/[^\w]/g, '')).filter(Boolean);
+    }
+
+    function _buildVocab(samples) {
+      _vocab.clear();
+      _vocabSize = 1;
+      samples.forEach(s => _tokenize(s.text).forEach(w => {
+        if (!_vocab.has(w)) _vocab.set(w, _vocabSize++);
+      }));
+    }
+
+    function _encode(text) {
+      const x = new Array(_vocabSize).fill(0);
+      _tokenize(text).forEach(w => {
+        const idx = _vocab.get(w);
+        if (idx) x[idx] += 1;
+      });
+      return x;
+    }
+
+    function _encodeLabel(intent) {
+      const y = new Array(NUM_CLASSES).fill(0);
+      y[INTENT_TO_IDX[intent] ?? INTENT_TO_IDX['chitchat']] = 1;
+      return y;
+    }
+
+    // ── Model factory ───────────────────────────────────────────────
+    function _buildModel(inputDim) {
+      const m = tf.sequential();
+      m.add(tf.layers.dense({ units: 64, activation: 'relu', inputShape: [inputDim] }));
+      m.add(tf.layers.dropout({ rate: 0.2 }));
+      m.add(tf.layers.dense({ units: NUM_CLASSES, activation: 'softmax' }));
+      m.compile({ optimizer: tf.train.adam(0.001), loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+      return m;
+    }
+
+    // ── Training ────────────────────────────────────────────────────
+    async function train(extraSamples = [], onProgress = null) {
+      if (typeof tf === 'undefined') {
+        MetaLog.log('neural', 'TF.js not available — skipping neural training.');
+        return false;
+      }
+      const samples = [...SEED_DATA, ...extraSamples];
+      _buildVocab(samples);
+
+      const xs = tf.tensor2d(samples.map(s => _encode(s.text)));
+      const ys = tf.tensor2d(samples.map(s => _encodeLabel(s.intent)));
+
+      _model = _buildModel(_vocabSize);
+
+      await _model.fit(xs, ys, {
+        epochs: 40,
+        batchSize: 8,
+        shuffle: true,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            if (onProgress) onProgress(epoch, logs);
+          }
+        }
+      });
+
+      xs.dispose();
+      ys.dispose();
+
+      // Persist vocab + model to IndexedDB
+      try {
+        await _model.save(MODEL_KEY);
+        localStorage.setItem('alex_nlu_vocab', JSON.stringify([..._vocab.entries()]));
+        localStorage.setItem('alex_nlu_vocab_size', String(_vocabSize));
+        MetaLog.log('neural', `Model trained (${samples.length} samples) and saved to IndexedDB.`);
+      } catch (e) {
+        MetaLog.log('neural', `Model trained but save failed: ${e.message}`);
+      }
+
+      _ready = true;
+      return true;
+    }
+
+    // ── Load from IndexedDB ─────────────────────────────────────────
+    async function load() {
+      if (typeof tf === 'undefined') return false;
+      try {
+        _model = await tf.loadLayersModel(MODEL_KEY);
+        const storedVocab = localStorage.getItem('alex_nlu_vocab');
+        const storedSize  = localStorage.getItem('alex_nlu_vocab_size');
+        if (!storedVocab || !storedSize) throw new Error('Vocab missing from storage');
+        _vocab     = new Map(JSON.parse(storedVocab));
+        _vocabSize = parseInt(storedSize, 10);
+        _ready     = true;
+        MetaLog.log('neural', `Model loaded from IndexedDB (vocab size: ${_vocabSize}).`);
+        return true;
+      } catch (e) {
+        MetaLog.log('neural', `Load failed (will need training): ${e.message}`);
+        return false;
+      }
+    }
+
+    // ── Async prediction — call via primeForInput() before process() ─
+    async function primeForInput(text) {
+      if (!_ready || !_model) {
+        _cachedInput  = text;
+        _cachedIntent = null;
+        _cachedConf   = 0;
+        return;
+      }
+      try {
+        const x     = tf.tensor2d([_encode(text)]);
+        const probs = _model.predict(x);
+        const data  = await probs.data();
+        x.dispose();
+        probs.dispose();
+
+        let maxIdx = 0, maxVal = data[0];
+        for (let i = 1; i < data.length; i++) {
+          if (data[i] > maxVal) { maxVal = data[i]; maxIdx = i; }
+        }
+        _cachedInput  = text;
+        _cachedIntent = INTENTS[maxIdx];
+        _cachedConf   = maxVal;
+        MetaLog.log('neural', `Predicted: ${_cachedIntent} (conf: ${maxVal.toFixed(2)})`);
+      } catch (e) {
+        _cachedInput  = text;
+        _cachedIntent = null;
+        _cachedConf   = 0;
+        MetaLog.log('neural', `Prediction error: ${e.message}`);
+      }
+    }
+
+    // ── Synchronous read of cached prediction (used by NLUModule) ───
+    function getCachedIntent(text) {
+      if (_cachedInput === text && _cachedIntent && _cachedConf >= CONFIDENCE_THRESHOLD) {
+        return { intent: _cachedIntent, confidence: _cachedConf };
+      }
+      return null;
+    }
+
+    // ── Public API ──────────────────────────────────────────────────
+    return {
+      get ready()     { return _ready; },
+      get modelKey()  { return MODEL_KEY; },
+      INTENTS,
+      SEED_DATA,
+      train,
+      load,
+      primeForInput,
+      getCachedIntent
+    };
+  })();
+
+  /* ================================================================
      SECTION 8 — NLUModule  (rule-based intent + entity classifier)
      ================================================================ */
   class NLUModule {
@@ -681,6 +980,9 @@
         // Training / metrics (meta)
         { rex: /\b(export|download|training data|conversation log)\b/i, intent: 'export_data' },
         { rex: /\b(metrics|accuracy|stats|how accurate)\b/i,   intent: 'ask_metrics' },
+        // Neural NLU control (dev)
+        { rex: /\b(train neural|train nlu|train model)\b/i,    intent: 'train_neural' },
+        { rex: /\b(neural status|nlu status|is neural ready)\b/i, intent: 'ask_neural' },
       ];
     }
 
@@ -688,11 +990,11 @@
       let intent = 'chitchat';
       const entities = [];
 
+      // ── Rule-based pass (always runs as safety net) ──────────────
       for (const rule of this._intentRules) {
         const m = input.match(rule.rex);
         if (m) {
           intent = rule.intent;
-          // Capture first non-full-match group as entity
           for (let i = 1; i < m.length; i++) {
             if (m[i]) entities.push(m[i].trim());
           }
@@ -700,8 +1002,17 @@
         }
       }
 
+      // ── Neural override (if model is ready and confident) ────────
+      // NeuralNLU.primeForInput() was called asynchronously before
+      // Coordinator.process(), so getCachedIntent() is synchronous here.
+      const neural = NeuralNLU.getCachedIntent(input);
+      if (neural) {
+        MetaLog.log('neural', `Overriding rule intent "${intent}" → "${neural.intent}" (conf: ${neural.confidence.toFixed(2)})`);
+        intent = neural.intent;
+      }
+
       const sentiment = this.emotionModule.analyzeSentiment(input);
-      MetaLog.log('nlu', `Intent=${intent}, sentiment=${sentiment.label}`);
+      MetaLog.log('nlu', `Intent=${intent}, sentiment=${sentiment.label}, neural=${neural ? 'yes' : 'no'}`);
       return { intent, entities, sentiment, raw: input };
     }
   }
@@ -1094,6 +1405,28 @@
         base += `\n\n— Training Metrics —\n${this.trainingMetrics.report()}`;
       }
 
+      // Neural NLU status and training (dev intents)
+      if (nlu.intent === 'ask_neural') {
+        const status = NeuralNLU.ready
+          ? `Neural NLU is active. Model loaded and ready. Confidence threshold: 70%.`
+          : `Neural NLU is not yet trained. Use the "Train Neural NLU" button in the dev panel, or say "train neural".`;
+        base += `\n${status}`;
+      }
+
+      if (nlu.intent === 'train_neural') {
+        base += `\nStarting neural NLU training on ${NeuralNLU.SEED_DATA.length} seed samples. ` +
+          `Watch the 🧠 dev panel for progress. This may take 10–30 seconds…`;
+        // Fire async training without blocking the response
+        const extraSamples = this.trainingLogger.conversations
+          .filter(t => t.feedback === 'up' && t.intent !== 'chitchat')
+          .map(t => ({ text: t.userInput, intent: t.intent }));
+        NeuralNLU.train(extraSamples, (epoch, logs) => {
+          MetaLog.log('neural', `Epoch ${epoch + 1}/40 — loss: ${logs.loss.toFixed(3)}, acc: ${(logs.acc ?? logs.val_acc ?? 0).toFixed(3)}`);
+        }).then(ok => {
+          MetaLog.log('neural', ok ? 'Training complete ✓' : 'Training failed ✗');
+        });
+      }
+
       // 8. Introspective reflection trigger — pass sentiment score so
       //    SelfReflectionModule can derive confidence from signal certainty.
       const lower = input.toLowerCase();
@@ -1265,7 +1598,7 @@
       });
     }
 
-    waitForNatural().then(naturalReady => {
+    waitForNatural().then(async naturalReady => {
       if (!naturalReady) {
         console.warn('Natural.js did not load within timeout — sentiment analysis disabled.');
         MetaLog.log('system', 'Warning: Natural.js unavailable. Sentiment disabled.');
@@ -1273,6 +1606,68 @@
 
       const coordinator = new Coordinator();
       window._coordinator = coordinator; // expose for debugging
+
+      // ── Attempt to load a previously trained neural model ────────
+      const neuralStatusEl  = document.getElementById('neural-status');
+      const trainProgressEl = document.getElementById('train-progress');
+
+      function updateNeuralStatus() {
+        if (!neuralStatusEl) return;
+        neuralStatusEl.textContent = NeuralNLU.ready
+          ? '✅ Neural NLU active (IndexedDB model loaded)'
+          : '⚠️ Neural NLU not trained — using rule-based only';
+        neuralStatusEl.style.color = NeuralNLU.ready ? '#a6e3a1' : '#fab387';
+      }
+
+      NeuralNLU.load().then(loaded => {
+        updateNeuralStatus();
+        MetaLog.log('system', loaded ? 'Neural NLU loaded from IndexedDB.' : 'No saved neural model found.');
+      });
+
+      // ── Dev panel toggle ─────────────────────────────────────────
+      const devHeader    = document.getElementById('dev-panel-header');
+      const devToggleBtn = document.getElementById('dev-toggle-btn');
+      const devBody      = document.getElementById('dev-panel-body');
+      let devVisible     = true;
+
+      function toggleDev() {
+        devVisible = !devVisible;
+        devBody.style.display    = devVisible ? 'block' : 'none';
+        devToggleBtn.textContent = devVisible ? 'Hide' : 'Show';
+      }
+      devToggleBtn.addEventListener('click', e => { e.stopPropagation(); toggleDev(); });
+      devHeader.addEventListener('click',    e => { if (e.target !== devToggleBtn) toggleDev(); });
+      devHeader.addEventListener('keydown',  e => { if (e.key === 'Enter' || e.key === ' ') toggleDev(); });
+
+      // ── Train with seed data ─────────────────────────────────────
+      document.getElementById('btn-train-neural').addEventListener('click', async () => {
+        trainProgressEl.textContent = 'Training… epoch 0/40';
+        await NeuralNLU.train([], (epoch, logs) => {
+          trainProgressEl.textContent =
+            `Epoch ${epoch + 1}/40 — loss: ${logs.loss.toFixed(3)}`;
+        });
+        trainProgressEl.textContent = NeuralNLU.ready
+          ? '✅ Training complete! Neural NLU now active.'
+          : '❌ Training failed — check console.';
+        updateNeuralStatus();
+      });
+
+      // ── Train with upvoted conversation data ─────────────────────
+      document.getElementById('btn-train-with-feedback').addEventListener('click', async () => {
+        const extra = coordinator.trainingLogger.conversations
+          .filter(t => t.feedback === 'up' && t.intent !== 'chitchat')
+          .map(t => ({ text: t.userInput, intent: t.intent }));
+        const total = NeuralNLU.SEED_DATA.length + extra.length;
+        trainProgressEl.textContent = `Training on ${total} samples (${extra.length} from feedback)… epoch 0/40`;
+        await NeuralNLU.train(extra, (epoch, logs) => {
+          trainProgressEl.textContent =
+            `Epoch ${epoch + 1}/40 — loss: ${logs.loss.toFixed(3)}`;
+        });
+        trainProgressEl.textContent = NeuralNLU.ready
+          ? `✅ Done! ${total} samples, neural NLU active.`
+          : '❌ Training failed — check console.';
+        updateNeuralStatus();
+      });
 
       MetaLog.log('system', `Alex-Web-Agent online. Natural.js ready=${naturalReady}.`);
       renderStatusBar();
@@ -1282,13 +1677,14 @@
         'Alex online. I\'m a modular metacognitive chatbot running entirely in your browser.\n' +
         (naturalReady ? '' : '⚠️ Sentiment analysis offline (CDN unavailable).\n') +
         'Try: "Who are you?" · "How do you feel?" · "Show thoughts" · "Tell me a joke"\n' +
-        '"Remember: [something]" · "Recall" · "Metrics" · "Export training data"',
+        '"Remember: [something]" · "Recall" · "Metrics" · "Export training data"\n' +
+        '"Neural status" · "Train neural" — or use the ⚗️ dev panel (bottom-left) to train the neural NLU.',
         false, coordinator
       );
       MetaLog._refreshPanel();
 
-      /** Send handler */
-      function sendMessage() {
+      /** Send handler — async so we can prime the neural model before processing */
+      async function sendMessage() {
         const text = inputEl.value.trim();
         if (!text) return;
 
@@ -1296,6 +1692,10 @@
         coordinator.memory.store('short', 'recentInput', text);
         inputEl.value = '';
         inputEl.style.height = 'auto';
+
+        // Prime neural intent prediction asynchronously BEFORE process()
+        // so NLUModule.parse() can read the cached result synchronously.
+        await NeuralNLU.primeForInput(text);
 
         // Small delay to simulate pipeline processing
         setTimeout(() => {
