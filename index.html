@@ -2,21 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
   <title>Alex — Neuromorphic Metacognitive Chatbot</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-
-  <!-- Natural.js: NLP / sentiment -->
-  <script src="https://unpkg.com/natural@6.12.0/lib/natural.js"></script>
-  <!-- TensorFlow.js: neural intent classifier -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
-
   <style>
     :root {
-      --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-      --font-display: 'Space Mono', monospace;
+      --font-mono: 'Courier New', Courier, monospace;
       --sp: 8px;
       --radius: 4px;
       --c-bg: #0a0a0f;
@@ -27,300 +17,132 @@
       --c-text: #d4d4e8;
       --c-text-sub: #7070a0;
       --c-accent: #7c6af7;
-      --c-accent-dim: #3d3580;
+      --c-accent-dim: #2d2560;
       --c-accent2: #00d4aa;
-      --c-accent2-dim: #00614d;
       --c-warn: #f7a26a;
       --c-danger: #f76a6a;
       --c-success: #6af7a2;
-      --mood-happy: #6af7a2;
-      --mood-neutral: #f7d76a;
-      --mood-frustrated: #f76a6a;
-      --font-size-base: 13px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
       font-family: var(--font-mono);
-      font-size: var(--font-size-base);
+      font-size: 13px;
       line-height: 1.6;
       color: var(--c-text);
       background: var(--c-bg);
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
-      overflow: hidden;
     }
 
-    /* ── Scanline overlay ─────────────────────────── */
+    /* ── Scanline overlay ─────────────── */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.07) 2px,
-        rgba(0,0,0,0.07) 4px
+        0deg, transparent, transparent 2px,
+        rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px
       );
       pointer-events: none;
       z-index: 9999;
     }
 
-    /* ── Status Bar ─────────────────────────────────── */
+    /* ── Status Bar ───────────────────── */
     #status-bar {
-      width: 100%;
+      flex-shrink: 0;
       background: var(--c-surface);
       border-bottom: 1px solid var(--c-border);
-      padding: 6px 16px;
+      padding: 6px 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-size: 11px;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      flex-shrink: 0;
+      z-index: 100;
     }
 
-    #status-bar .brand {
-      font-family: var(--font-display);
-      font-size: 12px;
+    .brand {
       color: var(--c-accent);
+      font-weight: bold;
       letter-spacing: 0.05em;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    #status-bar .brand-sep {
-      color: var(--c-border-bright);
-    }
-
-    #status-bar .brand-sub {
-      color: var(--c-text-sub);
-      font-size: 10px;
-      font-family: var(--font-mono);
-      font-weight: 300;
-    }
-
-    .mood-pill {
-      height: 8px;
-      width: 8px;
-      border-radius: 50%;
-      background: var(--mood-neutral);
-      transition: background .4s ease, box-shadow .4s ease;
-      display: inline-block;
-      box-shadow: 0 0 6px var(--mood-neutral);
-    }
-
-    #status-mood-label {
-      color: var(--c-text-sub);
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    #status-votes {
-      font-size: 10px;
-      color: var(--c-text-sub);
-      letter-spacing: 0.05em;
-    }
-
-    /* ── Main Layout ────────────────────────────────── */
-    #main-layout {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-      height: calc(100vh - 33px);
-    }
-
-    /* ── Sidebar Panels ─────────────────────────────── */
-    .sidebar {
-      width: 260px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      overflow-y: auto;
-      border-right: 1px solid var(--c-border);
-      background: var(--c-surface);
-    }
-
-    .sidebar-right {
-      border-right: none;
-      border-left: 1px solid var(--c-border);
-    }
-
-    .panel {
-      border-bottom: 1px solid var(--c-border);
-    }
-
-    .panel-header {
-      padding: 8px 12px;
-      background: var(--c-surface2);
-      cursor: pointer;
-      user-select: none;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 10px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--c-text-sub);
-      transition: background .15s;
-    }
-
-    .panel-header:hover { background: #1e1e28; }
-
-    .panel-header .panel-title {
       display: flex;
       align-items: center;
       gap: 6px;
     }
 
-    .panel-header .panel-dot {
-      width: 6px; height: 6px;
+    .brand-sub {
+      color: var(--c-text-sub);
+      font-size: 10px;
+      font-weight: normal;
+    }
+
+    .mood-pill {
+      width: 8px; height: 8px;
       border-radius: 50%;
-      background: var(--c-accent);
-      box-shadow: 0 0 4px var(--c-accent);
+      background: #f7d76a;
+      display: inline-block;
+      box-shadow: 0 0 5px #f7d76a;
+      transition: background .4s, box-shadow .4s;
     }
 
-    .panel-toggle {
-      border: 1px solid var(--c-border);
-      background: transparent;
-      color: var(--c-text-sub);
-      cursor: pointer;
-      border-radius: 2px;
-      font-size: 9px;
-      padding: 1px 5px;
-      font-family: var(--font-mono);
-      transition: all .15s;
-    }
-
-    .panel-toggle:hover {
-      border-color: var(--c-accent);
-      color: var(--c-accent);
-    }
-
-    .panel-body {
-      padding: 10px 12px;
-      font-size: 10px;
-      line-height: 1.7;
-    }
-
-    /* ── Neuro Stats ────────────────────────────────── */
-    .neuro-section {
-      margin-bottom: 12px;
-    }
-
-    .neuro-section-title {
-      color: var(--c-text-sub);
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin-bottom: 6px;
-      border-bottom: 1px solid var(--c-border);
-      padding-bottom: 3px;
-    }
-
-    .neuro-stat {
+    #status-right {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin: 3px 0;
-    }
-
-    .neuro-stat-label { color: #90d090; font-size: 9px; }
-    .neuro-stat-value { color: var(--c-warn); font-size: 9px; font-weight: 500; }
-
-    /* ── Meta / Thought log ─────────────────────────── */
-    #meta-panel-content {
-      font-size: 9px;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      color: var(--c-accent2);
-      line-height: 1.6;
-      max-height: 280px;
-      overflow-y: auto;
-    }
-
-    /* ── Dev Panel ──────────────────────────────────── */
-    .dev-button {
-      width: 100%;
-      padding: 6px 8px;
-      border: 1px solid var(--c-border);
-      border-radius: var(--radius);
-      cursor: pointer;
+      gap: 8px;
       font-size: 10px;
-      font-family: var(--font-mono);
-      margin-bottom: 5px;
-      transition: all .15s;
-      text-align: left;
-      background: var(--c-surface2);
-      color: var(--c-text);
+      color: var(--c-text-sub);
     }
 
-    #btn-train-neural {
-      border-color: var(--c-accent-dim);
-      color: var(--c-accent);
-    }
-    #btn-train-neural:hover { background: #1e1a35; border-color: var(--c-accent); }
-
-    #btn-train-with-feedback {
-      border-color: var(--c-accent2-dim);
-      color: var(--c-accent2);
-    }
-    #btn-train-with-feedback:hover { background: #0a2820; border-color: var(--c-accent2); }
-
-    #neural-status { margin-bottom: 8px; font-size: 10px; color: var(--c-success); }
-    #train-progress { margin-top: 6px; color: var(--c-warn); min-height: 14px; font-size: 9px; }
-
-    /* ── Chat Area ──────────────────────────────────── */
-    #chat-area {
+    /* ── Main wrapper ─────────────────── */
+    #app {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      min-width: 0;
+      min-height: 0;
     }
 
+    /* ── Chat window ──────────────────── */
     #chat-window {
       flex: 1;
-      padding: 16px;
       overflow-y: auto;
+      padding: 12px;
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
+      min-height: 0;
     }
 
-    #chat-window::-webkit-scrollbar { width: 4px; }
-    #chat-window::-webkit-scrollbar-track { background: transparent; }
-    #chat-window::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
+    #chat-window::-webkit-scrollbar { width: 3px; }
+    #chat-window::-webkit-scrollbar-thumb { background: var(--c-border); }
 
-    /* ── Messages ───────────────────────────────────── */
+    /* ── Messages ─────────────────────── */
     .message {
-      padding: 10px 14px;
-      margin-bottom: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
       border-radius: var(--radius);
-      max-width: 82%;
-      line-height: 1.6;
+      max-width: 88%;
+      line-height: 1.55;
       word-wrap: break-word;
       position: relative;
-      animation: msgIn 0.18s ease-out both;
       font-size: 12px;
+      animation: msgIn .15s ease-out both;
     }
 
     @keyframes msgIn {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(5px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
     .user-message {
       background: var(--c-accent-dim);
       border: 1px solid var(--c-accent);
-      color: #e0dcff;
+      color: #ddd8ff;
       margin-left: auto;
       border-radius: var(--radius) 0 var(--radius) var(--radius);
     }
@@ -328,32 +150,29 @@
     .bot-message {
       background: var(--c-surface2);
       border: 1px solid var(--c-border);
+      border-left: 3px solid var(--c-border);
       color: var(--c-text);
       margin-right: auto;
-      padding-bottom: 26px;
+      padding-bottom: 28px;
       border-radius: 0 var(--radius) var(--radius) var(--radius);
-      border-left: 3px solid var(--c-border);
-      transition: border-left-color .4s ease;
+      transition: border-left-color .4s;
     }
 
-    .bot-message .msg-text {
-      white-space: pre-wrap;
-    }
+    .msg-text { white-space: pre-wrap; }
 
-    /* ── Feedback Buttons ───────────────────────────── */
+    /* ── Feedback row ─────────────────── */
     .feedback-row {
       position: absolute;
-      bottom: 5px;
-      right: 8px;
+      bottom: 5px; right: 8px;
       display: flex;
       gap: 4px;
     }
 
     .feedback-row button {
-      font-size: 10px;
-      padding: 1px 6px;
+      font-size: 11px;
+      padding: 2px 7px;
       border: 1px solid var(--c-border);
-      border-radius: 2px;
+      border-radius: 3px;
       cursor: pointer;
       background: var(--c-surface);
       color: var(--c-text-sub);
@@ -364,49 +183,47 @@
     .feedback-row button:hover {
       border-color: var(--c-accent);
       color: var(--c-accent);
-      background: #1e1a35;
     }
 
-    /* ── Input Area ─────────────────────────────────── */
+    /* ── Input area ───────────────────── */
     #input-area {
+      flex-shrink: 0;
       display: flex;
-      padding: 10px 16px;
-      gap: 8px;
+      align-items: flex-end;
+      gap: 6px;
+      padding: 8px 10px;
       background: var(--c-surface);
       border-top: 1px solid var(--c-border);
-      align-items: flex-end;
-      flex-shrink: 0;
     }
 
-    .input-prefix {
+    .input-prompt {
       color: var(--c-accent);
-      font-family: var(--font-display);
-      font-size: 14px;
-      padding-bottom: 6px;
-      flex-shrink: 0;
+      font-size: 16px;
+      padding-bottom: 5px;
       user-select: none;
+      flex-shrink: 0;
     }
 
     .sr-only {
       position: absolute; width: 1px; height: 1px;
-      padding: 0; margin: -1px; overflow: hidden;
-      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+      overflow: hidden; clip: rect(0,0,0,0);
+      white-space: nowrap; border: 0;
     }
 
     #chat-input {
-      flex-grow: 1;
-      padding: 7px 10px;
+      flex: 1;
+      min-height: 38px;
+      max-height: 110px;
+      padding: 8px 10px;
+      background: var(--c-bg);
       border: 1px solid var(--c-border);
       border-radius: var(--radius);
-      font-size: 12px;
-      line-height: 1.5;
-      resize: none;
-      min-height: 36px;
-      max-height: 120px;
-      font-family: var(--font-mono);
-      background: var(--c-bg);
       color: var(--c-text);
-      transition: border-color .15s;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.4;
+      resize: none;
+      -webkit-appearance: none;
     }
 
     #chat-input::placeholder { color: var(--c-text-sub); }
@@ -414,127 +231,267 @@
     #chat-input:focus {
       outline: none;
       border-color: var(--c-accent);
-      box-shadow: 0 0 0 2px rgba(124,106,247,.15);
+      box-shadow: 0 0 0 2px rgba(124,106,247,.18);
     }
 
     #send-button {
-      padding: 7px 16px;
+      flex-shrink: 0;
+      height: 38px;
+      padding: 0 14px;
       background: var(--c-accent-dim);
       color: #c8c0ff;
       border: 1px solid var(--c-accent);
       border-radius: var(--radius);
-      font-size: 11px;
-      font-family: var(--font-display);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: bold;
       cursor: pointer;
-      transition: all .15s;
       letter-spacing: 0.05em;
-      height: 36px;
-      flex-shrink: 0;
+      transition: all .15s;
     }
 
-    #send-button:hover {
+    #send-button:hover, #send-button:active {
       background: var(--c-accent);
       color: #fff;
-      box-shadow: 0 0 12px rgba(124,106,247,.4);
     }
 
-    /* ── Scrollbar global ───────────────────────────── */
-    .sidebar::-webkit-scrollbar,
-    #meta-panel-content::-webkit-scrollbar { width: 3px; }
-    .sidebar::-webkit-scrollbar-thumb,
-    #meta-panel-content::-webkit-scrollbar-thumb { background: var(--c-border); }
-
-    /* ── Responsive ─────────────────────────────────── */
-    @media (max-width: 900px) {
-      .sidebar { width: 200px; }
+    /* ── Collapsible panels (below input on mobile) ── */
+    #panels-toggle-bar {
+      flex-shrink: 0;
+      display: flex;
+      border-top: 1px solid var(--c-border);
+      background: var(--c-surface);
     }
 
-    @media (max-width: 650px) {
-      .sidebar { display: none; }
+    .tab-btn {
+      flex: 1;
+      padding: 5px 4px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--c-border);
+      color: var(--c-text-sub);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: background .15s, color .15s;
+    }
+
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn.active { background: var(--c-surface2); color: var(--c-accent); }
+
+    #panels-area {
+      flex-shrink: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .25s ease;
+      background: var(--c-surface2);
+      border-top: 1px solid var(--c-border);
+    }
+
+    #panels-area.open {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .panel-content {
+      display: none;
+      padding: 10px 12px;
+      font-size: 10px;
+    }
+
+    .panel-content.active { display: block; }
+
+    /* ── Neuro stats ──────────────────── */
+    .neuro-section { margin-bottom: 10px; }
+
+    .neuro-section-title {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--c-text-sub);
+      border-bottom: 1px solid var(--c-border);
+      padding-bottom: 2px;
+      margin-bottom: 5px;
+    }
+
+    .neuro-stat {
+      display: flex;
+      justify-content: space-between;
+      margin: 2px 0;
+      font-size: 9px;
+    }
+
+    .nsl { color: #90d090; }
+    .nsv { color: var(--c-warn); }
+
+    /* ── Meta trace ───────────────────── */
+    #meta-panel-content {
+      color: var(--c-accent2);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 9px;
+      line-height: 1.6;
+    }
+
+    /* ── Dev panel ────────────────────── */
+    .dev-button {
+      display: block;
+      width: 100%;
+      padding: 5px 8px;
+      margin-bottom: 5px;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      color: var(--c-text);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      cursor: pointer;
+      text-align: left;
+      transition: all .15s;
+    }
+
+    #btn-train-neural { border-color: #3d3580; color: var(--c-accent); }
+    #btn-train-neural:hover { background: #1e1a35; }
+    #btn-train-with-feedback { border-color: var(--c-accent2-dim, #00614d); color: var(--c-accent2); }
+    #btn-train-with-feedback:hover { background: #0a2820; }
+
+    #neural-status { margin-bottom: 6px; color: var(--c-success); font-size: 10px; }
+    #train-progress { margin-top: 4px; color: var(--c-warn); font-size: 9px; min-height: 14px; }
+
+    /* ── Desktop: sidebars appear ─────── */
+    @media (min-width: 700px) {
+      #app {
+        flex-direction: row;
+        overflow: hidden;
+      }
+
+      #chat-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+      }
+
+      #panels-toggle-bar,
+      #panels-area { display: none !important; }
+
+      .sidebar {
+        display: flex !important;
+        flex-direction: column;
+        width: 220px;
+        flex-shrink: 0;
+        overflow-y: auto;
+        border-right: 1px solid var(--c-border);
+        background: var(--c-surface);
+      }
+
+      .sidebar-right {
+        border-right: none;
+        border-left: 1px solid var(--c-border);
+      }
+
+      .sidebar-panel {
+        border-bottom: 1px solid var(--c-border);
+      }
+
+      .sidebar-panel-header {
+        padding: 6px 10px;
+        background: var(--c-surface2);
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--c-text-sub);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .sidebar-dot {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: var(--c-accent);
+        box-shadow: 0 0 4px var(--c-accent);
+        flex-shrink: 0;
+      }
+
+      .sidebar-panel-body {
+        padding: 8px 10px;
+        font-size: 9px;
+      }
+
+      .sidebar::-webkit-scrollbar { width: 3px; }
+      .sidebar::-webkit-scrollbar-thumb { background: var(--c-border); }
     }
   </style>
 </head>
 <body>
 
-  <!-- ── Status Bar ──────────────────────────────────── -->
+  <!-- ── Status Bar ───────────────────── -->
   <div id="status-bar" role="status" aria-live="polite">
     <div class="brand">
       ALEX
-      <span class="brand-sep">/</span>
-      <span class="brand-sub">neuromorphic metacognitive agent v0.2</span>
+      <span style="color:var(--c-border-bright,#3a3a50)">/</span>
+      <span class="brand-sub">neuromorphic metacognitive v0.2</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span class="mood-pill" id="status-mood-pill" title="Current mood"></span>
+    <div id="status-right">
+      <span class="mood-pill" id="status-mood-pill"></span>
       <span id="status-mood-label">mood: neutral</span>
-      <span style="color:var(--c-border-bright)">|</span>
-      <span id="status-votes">👍 0 &nbsp; 👎 0</span>
+      <span style="color:#2a2a38">|</span>
+      <span id="status-votes">👍 0 👎 0</span>
     </div>
   </div>
 
-  <!-- ── Main Layout ─────────────────────────────────── -->
-  <div id="main-layout">
+  <!-- ── App body ──────────────────────── -->
+  <div id="app">
 
-    <!-- ── Left Sidebar ──────────────────────────────── -->
-    <aside class="sidebar" role="complementary" aria-label="System status panels">
-
-      <!-- Neuromorphic Status -->
-      <div class="panel">
-        <div class="panel-header" id="neuro-header" role="button" tabindex="0">
-          <div class="panel-title">
-            <div class="panel-dot" style="background:var(--c-accent2);box-shadow:0 0 4px var(--c-accent2)"></div>
-            Limbic System
-          </div>
-          <button class="panel-toggle" id="neuro-toggle" aria-label="Toggle neuro panel">▾</button>
+    <!-- Left sidebar (desktop only) -->
+    <aside class="sidebar" style="display:none" aria-label="Neuromorphic status">
+      <div class="sidebar-panel">
+        <div class="sidebar-panel-header">
+          <div class="sidebar-dot" style="background:var(--c-accent2);box-shadow:0 0 4px var(--c-accent2)"></div>
+          Limbic System
         </div>
-        <div class="panel-body" id="neuro-body">
+        <div class="sidebar-panel-body">
           <div class="neuro-section">
             <div class="neuro-section-title">Amygdala / Hippocampus</div>
-            <div id="limbic-status">
-              <div class="neuro-stat"><span class="neuro-stat-label">Loading…</span></div>
-            </div>
+            <div id="d-limbic-status"></div>
           </div>
           <div class="neuro-section">
             <div class="neuro-section-title">Interoception (Insula)</div>
-            <div id="interoception-status">
-              <div class="neuro-stat"><span class="neuro-stat-label">Loading…</span></div>
-            </div>
+            <div id="d-interoception-status"></div>
           </div>
           <div class="neuro-section">
             <div class="neuro-section-title">Drives (Hypothalamus)</div>
-            <div id="drives-status">
-              <div class="neuro-stat"><span class="neuro-stat-label">Loading…</span></div>
-            </div>
+            <div id="d-drives-status"></div>
           </div>
           <div class="neuro-section">
             <div class="neuro-section-title">Homeostasis</div>
-            <div id="homeostasis-status">
-              <div class="neuro-stat"><span class="neuro-stat-label">Loading…</span></div>
-            </div>
+            <div id="d-homeostasis-status"></div>
           </div>
         </div>
       </div>
-
-      <!-- Dev Panel -->
-      <div class="panel">
-        <div class="panel-header" id="dev-panel-header" role="button" tabindex="0">
-          <div class="panel-title">
-            <div class="panel-dot" style="background:var(--c-warn);box-shadow:0 0 4px var(--c-warn)"></div>
-            Neural NLU Dev
-          </div>
-          <button class="panel-toggle" id="dev-toggle-btn" aria-label="Toggle dev panel">▾</button>
+      <div class="sidebar-panel">
+        <div class="sidebar-panel-header">
+          <div class="sidebar-dot" style="background:var(--c-warn);box-shadow:0 0 4px var(--c-warn)"></div>
+          Neural NLU Dev
         </div>
-        <div class="panel-body" id="dev-panel-body">
-          <div id="neural-status">⏳ Checking for saved model…</div>
-          <button id="btn-train-neural" class="dev-button">▶ Train Neural NLU (seed data)</button>
-          <button id="btn-train-with-feedback" class="dev-button">+ Train with 👍 data</button>
-          <div id="train-progress"></div>
+        <div class="sidebar-panel-body">
+          <div id="d-neural-status" style="color:var(--c-success);margin-bottom:6px;font-size:10px">⏳ Checking…</div>
+          <button id="d-btn-train-neural" class="dev-button" style="border-color:#3d3580;color:var(--c-accent)">▶ Train Neural NLU</button>
+          <button id="d-btn-train-feedback" class="dev-button" style="border-color:#00614d;color:var(--c-accent2)">+ Train with 👍 data</button>
+          <div id="d-train-progress" style="color:var(--c-warn);font-size:9px;margin-top:4px"></div>
         </div>
       </div>
-
     </aside>
 
-    <!-- ── Chat Area ──────────────────────────────────── -->
-    <main id="chat-area">
+    <!-- Chat column -->
+    <div id="chat-col" style="display:contents">
+
       <div
         id="chat-window"
         role="log"
@@ -543,1436 +500,1079 @@
       ></div>
 
       <div id="input-area">
-        <div class="input-prefix">›</div>
+        <div class="input-prompt" aria-hidden="true">›</div>
         <label for="chat-input" class="sr-only">Your message</label>
         <textarea
           id="chat-input"
           rows="1"
-          placeholder="type message · enter to send · shift+enter for newline"
+          placeholder="Type a message… Enter to send"
           aria-label="Type your message"
         ></textarea>
-        <button id="send-button" aria-label="Send message">SEND</button>
+        <button id="send-button">SEND</button>
       </div>
-    </main>
 
-    <!-- ── Right Sidebar ─────────────────────────────── -->
-    <aside class="sidebar sidebar-right" role="complementary" aria-label="Internal thought trace">
-      <div class="panel" style="flex:1;border-bottom:none;">
-        <div class="panel-header" id="meta-panel-header" role="button" tabindex="0" aria-expanded="true">
-          <div class="panel-title">
-            <div class="panel-dot"></div>
-            Internal Trace
+      <!-- Mobile panel tabs -->
+      <div id="panels-toggle-bar" role="tablist">
+        <button class="tab-btn" data-panel="limbic"  role="tab">🧬 Limbic</button>
+        <button class="tab-btn" data-panel="trace"   role="tab">🧠 Trace</button>
+        <button class="tab-btn" data-panel="dev"     role="tab">⚗️ Dev</button>
+      </div>
+
+      <div id="panels-area" role="tabpanel">
+        <!-- Limbic panel -->
+        <div class="panel-content" id="panel-limbic">
+          <div class="neuro-section">
+            <div class="neuro-section-title">Amygdala / Hippocampus</div>
+            <div id="m-limbic-status"></div>
           </div>
-          <button class="panel-toggle" id="meta-toggle-btn" aria-label="Toggle thought panel">▾</button>
+          <div class="neuro-section">
+            <div class="neuro-section-title">Interoception</div>
+            <div id="m-interoception-status"></div>
+          </div>
+          <div class="neuro-section">
+            <div class="neuro-section-title">Drives</div>
+            <div id="m-drives-status"></div>
+          </div>
+          <div class="neuro-section">
+            <div class="neuro-section-title">Homeostasis</div>
+            <div id="m-homeostasis-status"></div>
+          </div>
         </div>
-        <div class="panel-body" style="padding:10px 12px;">
+
+        <!-- Trace panel -->
+        <div class="panel-content" id="panel-trace">
           <pre id="meta-panel-content">No thoughts recorded yet.</pre>
+        </div>
+
+        <!-- Dev panel -->
+        <div class="panel-content" id="panel-dev">
+          <div id="neural-status" style="color:var(--c-success);margin-bottom:6px">⏳ Checking for saved model…</div>
+          <button id="btn-train-neural" class="dev-button">▶ Train Neural NLU (seed data)</button>
+          <button id="btn-train-with-feedback" class="dev-button">+ Train with 👍 conversation data</button>
+          <div id="train-progress"></div>
+        </div>
+      </div>
+
+    </div><!-- /chat-col -->
+
+    <!-- Right sidebar (desktop only) -->
+    <aside class="sidebar sidebar-right" style="display:none" aria-label="Internal thought trace">
+      <div class="sidebar-panel" style="flex:1;border-bottom:none">
+        <div class="sidebar-panel-header">
+          <div class="sidebar-dot"></div>
+          Internal Trace
+        </div>
+        <div class="sidebar-panel-body">
+          <pre id="d-meta-panel-content" style="color:var(--c-accent2);white-space:pre-wrap;word-wrap:break-word;font-size:9px;line-height:1.6">No thoughts yet.</pre>
         </div>
       </div>
     </aside>
 
-  </div>
+  </div><!-- /app -->
 
-  <script>
-  /* ================================================================
-     SECTION 1 — selfModel
-     ================================================================ */
-  const selfModel = {
-    identity: {
-      name: 'Alex-Web-Agent',
-      version: '0.2-neuromorphic',
-      description: 'Browser-only modular chatbot with neuromorphic limbic system'
-    },
-    capabilities: [
-      'Neuromorphic limbic processing (amygdala, hippocampus, insula)',
-      'Neural intent classification (TensorFlow.js)',
-      'Sentiment-based emotion simulation',
-      'Episodic memory with emotional tagging',
-      'Homeostatic drive regulation',
-      'Short/long-term memory via Web Storage',
-      'Self-reflection and metacognition'
-    ],
-    limitations: [
-      'No real backend or LLM',
-      'Runs only in browser',
-      'Simulated emotions (not conscious)',
-      'Limited to single-user session'
-    ],
-    state: {
-      energy: 100,
-      confidence: 80,
-      lastFeedback: null,
-      totalUpVotes: 0,
-      totalDownVotes: 0,
-      policy: { verbosityLevel: 0.5, humorLevel: 0.3, cautionLevel: 0.4 }
-    },
-    emotionalVector: {
-      happiness: 0.5, curiosity: 0.7, frustration: 0.0,
-      engagement: 0.5, salience: 0.3
-    },
-    updateState(update) { Object.assign(this.state, update); },
-    updateEmotions(update) {
-      const clamped = {};
-      for (const [k, v] of Object.entries(update)) {
-        clamped[k] = Math.max(0, Math.min(1, v));
-      }
-      Object.assign(this.emotionalVector, clamped);
-    }
-  };
+<script>
+/* ================================================================
+   SELF MODEL
+   ================================================================ */
+const selfModel = {
+  identity: {
+    name: 'Alex-Web-Agent', version: '0.2-neuromorphic',
+    description: 'Browser-only modular chatbot with neuromorphic limbic system'
+  },
+  capabilities: [
+    'Neuromorphic limbic processing (amygdala, hippocampus, insula)',
+    'Rule-based intent classification',
+    'Sentiment-based emotion simulation',
+    'Episodic memory with emotional tagging',
+    'Homeostatic drive regulation',
+    'Short/long-term memory via Web Storage',
+    'Self-reflection and metacognition'
+  ],
+  limitations: [
+    'No real backend or LLM', 'Runs only in browser',
+    'Simulated emotions (not conscious)', 'Limited to single-user session'
+  ],
+  state: {
+    energy: 100, confidence: 80, lastFeedback: null,
+    totalUpVotes: 0, totalDownVotes: 0,
+    policy: { verbosityLevel: 0.5, humorLevel: 0.3, cautionLevel: 0.4 }
+  },
+  emotionalVector: { happiness: 0.5, curiosity: 0.7, frustration: 0.0, engagement: 0.5, salience: 0.3 },
+  updateState(u) { Object.assign(this.state, u); },
+  updateEmotions(u) {
+    for (const [k,v] of Object.entries(u))
+      this.emotionalVector[k] = Math.max(0, Math.min(1, v));
+  }
+};
 
-  /* ================================================================
-     SECTION 2 — MetaLog
-     ================================================================ */
-  const MetaLog = {
-    _steps: [],
-    maxSteps: 200,
-    _panelVisible: true,
+/* ================================================================
+   META LOG
+   ================================================================ */
+const MetaLog = {
+  _steps: [], maxSteps: 200, _panelVisible: true,
+  log(stage, detail) {
+    this._steps.push({ ts: new Date().toISOString(), stage, detail });
+    if (this._steps.length > this.maxSteps) this._steps.shift();
+    this._refreshPanel();
+  },
+  recent(n = 12) {
+    return this._steps.slice(-n)
+      .map(e => `[${new Date(e.ts).toLocaleTimeString()}] [${e.stage}] ${e.detail}`)
+      .join('\n');
+  },
+  _refreshPanel() {
+    const text = this.recent(12) || 'No thoughts yet.';
+    const m = document.getElementById('meta-panel-content');
+    const d = document.getElementById('d-meta-panel-content');
+    if (m) m.textContent = text;
+    if (d) d.textContent = text;
+  }
+};
+window.MetaLog = MetaLog;
 
-    log(stage, detail) {
-      this._steps.push({ timestamp: new Date().toISOString(), stage, detail });
-      if (this._steps.length > this.maxSteps) this._steps.shift();
-      if (this._panelVisible) this._refreshPanel();
-    },
+/* ================================================================
+   MEMORY MODULE
+   ================================================================ */
+class MemoryModule {
+  constructor() {
+    try {
+      this.shortTerm = JSON.parse(sessionStorage.getItem('stm') || '[]');
+      this.longTerm  = JSON.parse(localStorage.getItem('ltm')  || '[]');
+    } catch { this.shortTerm = []; this.longTerm = []; }
+  }
+  recall(type, key) {
+    const mem = type === 'short' ? this.shortTerm : this.longTerm;
+    return mem.slice().reverse().find(e => e.key === key)?.value ?? null;
+  }
+  store(type, key, value) {
+    const mem = type === 'short' ? this.shortTerm : this.longTerm;
+    const sk  = type === 'short' ? 'stm' : 'ltm';
+    const st  = type === 'short' ? sessionStorage : localStorage;
+    mem.push({ key, value });
+    if (mem.length > 200) mem.shift();
+    try { st.setItem(sk, JSON.stringify(mem)); } catch { /* ignore */ }
+    MetaLog.log('memory', `store(${type}, ${key})`);
+  }
+}
 
-    recent(n = 10) {
-      return this._steps.slice(-n)
-        .map(e => `[${new Date(e.timestamp).toLocaleTimeString()}] [${e.stage}] ${e.detail}`)
-        .join('\n');
-    },
+/* ================================================================
+   INLINE SENTIMENT  (no CDN required)
+   AFINN-style word scores, sufficient for basic emotion detection.
+   ================================================================ */
+const AFINN = {
+  'good':2,'great':3,'happy':3,'excellent':3,'love':3,'like':2,'nice':2,
+  'wonderful':3,'amazing':3,'fantastic':3,'thanks':2,'thank':2,'yes':1,
+  'awesome':3,'glad':2,'enjoy':2,'perfect':3,'well':1,'best':3,'fun':2,
+  'helpful':2,'smart':2,'clever':2,'fast':2,'smooth':2,'feature':1,'interesting':1,
+  'cool':2,'beautiful':2,'brilliant':3,'easy':1,'better':2,'improved':1,
+  'bad':-2,'terrible':-3,'hate':-3,'angry':-3,'sad':-2,'awful':-3,
+  'horrible':-3,'disappointed':-2,'frustrated':-2,'annoyed':-2,'wrong':-2,
+  'worst':-3,'fail':-2,'unhappy':-2,'boring':-2,'bug':-2,'crash':-3,
+  'broken':-3,'error':-2,'lag':-2,'latency':-2,'slow':-1,'ugly':-2,
+  'stupid':-2,'dumb':-2,'useless':-2,'problem':-1,'issue':-1,'failure':-3,
+  'not':0  // handled as negation below
+};
 
-    _refreshPanel() {
-      const el = document.getElementById('meta-panel-content');
-      if (el) el.textContent = this.recent(12) || 'No thoughts yet.';
-    }
-  };
-
-  window.MetaLog = MetaLog;
-
-  /* ================================================================
-     SECTION 3 — MemoryModule
-     ================================================================ */
-  class MemoryModule {
-    constructor() {
-      try {
-        this.shortTerm = JSON.parse(sessionStorage.getItem('shortTermMemory') || '[]');
-        this.longTerm  = JSON.parse(localStorage.getItem('longTermMemory')   || '[]');
-      } catch (e) {
-        this.shortTerm = [];
-        this.longTerm  = [];
-      }
-    }
-
-    recall(type, key) {
-      const mem = type === 'short' ? this.shortTerm : this.longTerm;
-      const hit = mem.slice().reverse().find(e => e.key === key);
-      return hit ? hit.value : null;
-    }
-
-    store(type, key, value) {
-      const mem = type === 'short' ? this.shortTerm : this.longTerm;
-      const storageKey = type === 'short' ? 'shortTermMemory' : 'longTermMemory';
-      const store = type === 'short' ? sessionStorage : localStorage;
-
-      const candidate = [...mem, { key, value }];
-      try {
-        store.setItem(storageKey, JSON.stringify(candidate));
-        mem.push({ key, value });
-      } catch (e) {
-        console.warn(`MemoryModule: ${type} storage write failed. In-memory only.`, e);
-        mem.push({ key, value });
-      }
-      MetaLog.log('memory', `store(${type}, ${key})`);
+function analyzeSentimentInline(text) {
+  const tokens = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+  let score = 0, hits = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const w = tokens[i];
+    if (w in AFINN && AFINN[w] !== 0) {
+      const negated = i > 0 && ['not','never','no','hardly','barely'].includes(tokens[i-1]);
+      score += negated ? -AFINN[w] : AFINN[w];
+      hits++;
     }
   }
+  const normalised = hits > 0 ? Math.max(-1, Math.min(1, score / (hits * 3))) : 0;
+  const label = normalised > 0.1 ? 'Positive' : normalised < -0.1 ? 'Negative' : 'Neutral';
+  return { label, score: normalised,
+           description: `Sentiment: ${label} (score: ${normalised.toFixed(2)}).` };
+}
 
-  /* ================================================================
-     SECTION 4 — PerceptionModule
-     ================================================================ */
-  class PerceptionModule {
-    perceive(input) {
-      const time = new Date().toLocaleTimeString();
-      MetaLog.log('perception', `Input: "${input.slice(0, 60)}${input.length > 60 ? '…' : ''}"`);
-      return `Perceiving: "${input}" at ${time}.`;
-    }
+/* ================================================================
+   EMOTION MODULE
+   ================================================================ */
+class EmotionModule {
+  _clamp(v) { return Math.max(0, Math.min(1, v)); }
+  analyzeSentiment(text) {
+    const result = analyzeSentimentInline(text);
+    selfModel.updateEmotions({
+      happiness:   this._clamp(result.score > 0 ? 0.8 : result.score < 0 ? 0.2 : 0.5),
+      frustration: this._clamp(result.score < 0 ? 0.5 : 0.0)
+    });
+    MetaLog.log('emotion', `${result.label} (score: ${result.score.toFixed(2)})`);
+    return result;
+  }
+}
+
+/* ================================================================
+   LIMBIC SYSTEM
+   ================================================================ */
+class LimbicSystem {
+  constructor() {
+    this.amygdala = { recentSalients: [] };
+    this.hippocampus = { episodes: [], maxEpisodes: 100, patternThreshold: 0.7 };
+    this.insula = {
+      bodyState: { energyLevel:1.0, confidenceLevel:0.8, stressLevel:0.2, socialEngagement:0.5 }
+    };
+    this.hypothalamus = {
+      drives: { competence:0.5, autonomy:0.5, relatedness:0.5, curiosity:0.7, coherence:0.6 },
+      homeostasisTarget: 0.6
+    };
+    this.consolidationQueue = [];
   }
 
-  /* ================================================================
-     SECTION 5 — EmotionModule
-     ================================================================ */
-  class EmotionModule {
-    constructor() {
-      this._analyzer = null;
-      this._customLexicon = {
-        'feature': 0.3, 'performance': 0.4, 'fast': 0.4, 'smooth': 0.3,
-        'clever': 0.5, 'helpful': 0.6, 'bug': -0.8, 'crash': -0.9,
-        'broken': -0.8, 'latency': -0.6, 'lag': -0.5, 'error': -0.7, 'fail': -0.7
-      };
+  detectSalience(input, sentiment, intent) {
+    let threat = 0, benefit = 0;
+    if (sentiment.label === 'Negative') threat += 0.4;
+    if (sentiment.score < -0.5)         threat += 0.3;
+    if (intent === 'user_apology')       threat += 0.2;
+    if (sentiment.label === 'Positive')  benefit += 0.4;
+    if (intent === 'gratitude')          benefit += 0.3;
+    if (intent === 'humor_request')      benefit += 0.2;
+    const salience = Math.max(threat, benefit);
+    if (salience > 0.5) {
+      this.amygdala.recentSalients.push({ input, salience, threat, benefit, intent });
+      if (this.amygdala.recentSalients.length > 10) this.amygdala.recentSalients.shift();
     }
-
-    _getAnalyzer() {
-      if (this._analyzer) return this._analyzer;
-
-      if (typeof natural !== 'undefined') {
-        try {
-          this._analyzer = new natural.SentimentAnalyzer('English', natural.PorterStemmer, 'afinn');
-          return this._analyzer;
-        } catch (e) {
-          console.warn('EmotionModule: SentimentAnalyzer init failed.', e);
-        }
-      }
-
-      const POS = ['good','great','happy','excellent','love','like','nice','wonderful',
-                   'amazing','fantastic','thanks','thank','yes','awesome','glad','enjoy'];
-      const NEG = ['bad','terrible','hate','angry','sad','awful','horrible','disappointed',
-                   'frustrated','annoyed','wrong','worst','no','fail','unhappy','boring'];
-      this._analyzer = {
-        getSentiment(tokens) {
-          let score = 0;
-          tokens.forEach(t => {
-            const w = t.toLowerCase();
-            if (POS.includes(w)) score += 0.5;
-            if (NEG.includes(w)) score -= 0.5;
-          });
-          return Math.max(-1, Math.min(1, score));
-        }
-      };
-      MetaLog.log('system', 'EmotionModule: using offline keyword fallback.');
-      return this._analyzer;
-    }
-
-    _clamp(v) { return Math.max(0, Math.min(1, v)); }
-
-    analyzeSentiment(text) {
-      let score = 0;
-      let label = 'Neutral';
-      const tokens = text.split(/\s+/);
-
-      let customScore = 0, customHits = 0;
-      tokens.forEach(t => {
-        const w = t.toLowerCase().replace(/[^\w]/g, '');
-        if (Object.prototype.hasOwnProperty.call(this._customLexicon, w)) {
-          customScore += this._customLexicon[w];
-          customHits++;
-        }
-      });
-
-      if (customHits > 0) {
-        score = Math.max(-1, Math.min(1, customScore));
-        MetaLog.log('emotion', `Custom lexicon: ${customHits} token(s), score: ${score.toFixed(2)}`);
-      } else {
-        const analyzer = this._getAnalyzer();
-        if (analyzer) {
-          try { score = analyzer.getSentiment(tokens); } catch (e) { /* ignore */ }
-        }
-      }
-
-      if (score > 0) label = 'Positive';
-      else if (score < 0) label = 'Negative';
-
-      selfModel.updateEmotions({
-        happiness:   this._clamp(score > 0 ? 0.8 : score < 0 ? 0.2 : 0.5),
-        frustration: this._clamp(score < 0 ? 0.5 : 0.0)
-      });
-
-      MetaLog.log('emotion', `Sentiment ${label} (score: ${score.toFixed(2)})`);
-      return { label, score, description: `Sentiment: ${label} (score: ${score.toFixed(2)}).` };
-    }
+    return { salience, threatLevel: threat, benefitLevel: benefit };
   }
 
-  /* ================================================================
-     SECTION 5b — LimbicSystem
-     ================================================================ */
-  class LimbicSystem {
-    constructor() {
-      this.amygdala = {
-        threatThreshold: 0.6,
-        benefitThreshold: 0.4,
-        recentSalients: [],
-        emotionalMemory: new Map()
-      };
-
-      this.hippocampus = {
-        episodes: [],
-        maxEpisodes: 100,
-        patternCompletionThreshold: 0.7
-      };
-
-      this.insula = {
-        bodyState: {
-          energyLevel: 1.0,
-          confidenceLevel: 0.8,
-          stressLevel: 0.2,
-          socialEngagement: 0.5
-        },
-        interoceptiveSignals: []
-      };
-
-      this.hypothalamus = {
-        drives: {
-          competence: 0.5, autonomy: 0.5, relatedness: 0.5,
-          curiosity: 0.7, coherence: 0.6
-        },
-        homeostasisTarget: 0.6
-      };
-
-      this.consolidationQueue = [];
-    }
-
-    detectSalience(input, sentiment, intent) {
-      let threatLevel = 0, benefitLevel = 0;
-
-      if (sentiment.label === 'Negative') threatLevel += 0.4;
-      if (intent === 'user_apology') threatLevel += 0.2;
-      if (sentiment.score < -0.5) threatLevel += 0.3;
-      if (sentiment.label === 'Positive') benefitLevel += 0.4;
-      if (intent === 'gratitude') benefitLevel += 0.3;
-      if (intent === 'humor_request') benefitLevel += 0.2;
-
-      const salience = Math.max(threatLevel, benefitLevel);
-
-      const emotionalTag = {
-        timestamp: new Date().toISOString(), input, salience,
-        threatLevel, benefitLevel, sentiment: sentiment.label, intent
-      };
-
-      if (salience > 0.5) {
-        this.amygdala.recentSalients.push(emotionalTag);
-        if (this.amygdala.recentSalients.length > 10) this.amygdala.recentSalients.shift();
-      }
-
-      return { salience, threatLevel, benefitLevel, emotionalTag };
-    }
-
-    encodeEpisode(input, output, sentiment, salience, context = {}) {
-      const episode = {
-        timestamp: new Date().toISOString(), input, output,
-        sentiment: sentiment.label, salience, context,
-        bodyState: { ...this.insula.bodyState },
-        drives: { ...this.hypothalamus.drives }
-      };
-
-      this.hippocampus.episodes.push(episode);
-      if (this.hippocampus.episodes.length > this.hippocampus.maxEpisodes) {
-        this.hippocampus.episodes.shift();
-      }
-      if (salience > 0.6) this.consolidationQueue.push(episode);
-
-      return episode;
-    }
-
-    patternComplete(currentInput, topN = 3) {
-      return this.hippocampus.episodes
-        .map(ep => ({ episode: ep, similarity: this._cosineSimilarity(currentInput, ep.input) }))
-        .filter(s => s.similarity > this.hippocampus.patternCompletionThreshold)
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, topN)
-        .map(s => s.episode);
-    }
-
-    updateInteroception(feedback, metrics) {
-      const prevState = { ...this.insula.bodyState };
-
-      this.insula.bodyState.energyLevel = Math.max(0, Math.min(1,
-        this.insula.bodyState.energyLevel - 0.01 + (feedback === 'up' ? 0.05 : -0.03)
-      ));
-
-      const upvoteRatio = metrics.totalUpVotes / Math.max(1, metrics.totalUpVotes + metrics.totalDownVotes);
-      this.insula.bodyState.confidenceLevel = Math.max(0, Math.min(1, 0.5 + upvoteRatio * 0.5));
-
-      this.insula.bodyState.stressLevel = Math.max(0, Math.min(1,
-        this.insula.bodyState.stressLevel + (feedback === 'down' ? 0.1 : -0.02)
-      ));
-
-      this.insula.bodyState.socialEngagement = Math.max(0, Math.min(1,
-        0.3 + (metrics.totalResponses / 100) * 0.7
-      ));
-
-      const changes = {};
-      for (const [key, newVal] of Object.entries(this.insula.bodyState)) {
-        if (Math.abs(newVal - prevState[key]) > 0.05) {
-          changes[key] = { prev: prevState[key].toFixed(2), now: newVal.toFixed(2) };
-        }
-      }
-      if (Object.keys(changes).length > 0) {
-        MetaLog.log('insula', `Body state: ${JSON.stringify(changes)}`);
-      }
-
-      return this.insula.bodyState;
-    }
-
-    updateDrives(nluResult, userModel, metrics) {
-      this.hypothalamus.drives.competence = Math.max(0, Math.min(1,
-        0.5 + (metrics.totalUpVotes / Math.max(1, metrics.totalUpVotes + metrics.totalDownVotes)) * 0.5
-      ));
-
-      const intentDiversity = new Set(
-        this.hippocampus.episodes.slice(-20).map(e => e.context.intent)
-      ).size / 20;
-      this.hypothalamus.drives.autonomy = Math.max(0, Math.min(1, 0.3 + intentDiversity * 0.7));
-
-      const socialIntents = ['gratitude', 'user_apology', 'humor_request', 'ask_tom'];
-      const recentSocial = this.hippocampus.episodes.slice(-10)
-        .filter(e => socialIntents.includes(e.context.intent)).length;
-      this.hypothalamus.drives.relatedness = Math.max(0, Math.min(1, 0.3 + (recentSocial / 10) * 0.7));
-
-      const noveltyScore = nluResult.intent === 'ask_metrics' || nluResult.intent === 'ask_neural' ? 0.8 : 0.3;
-      this.hypothalamus.drives.curiosity = Math.max(0, Math.min(1, 0.5 + noveltyScore * 0.5));
-
-      const policyStability = 1 - Math.abs(selfModel.state.policy.verbosityLevel - 0.5) * 0.5;
-      this.hypothalamus.drives.coherence = Math.max(0, Math.min(1, policyStability));
-
-      MetaLog.log('hypothalamus', `Drives: ${JSON.stringify(
-        Object.fromEntries(Object.entries(this.hypothalamus.drives).map(([k, v]) => [k, v.toFixed(2)]))
-      )}`);
-
-      return this.hypothalamus.drives;
-    }
-
-    consolidateMemories() {
-      if (this.consolidationQueue.length === 0) return;
-      const toConsolidate = this.consolidationQueue.splice(0, 3);
-      toConsolidate.forEach(episode => {
-        MetaLog.log('consolidation', `Replaying: "${episode.input.slice(0, 50)}" (salience: ${episode.salience.toFixed(2)})`);
-      });
-    }
-
-    _cosineSimilarity(text1, text2) {
-      const tokens1 = new Set(text1.toLowerCase().split(/\s+/));
-      const tokens2 = new Set(text2.toLowerCase().split(/\s+/));
-      const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
-      const union = new Set([...tokens1, ...tokens2]);
-      return intersection.size / Math.max(1, union.size);
-    }
-
-    getHomeostasis() {
-      const avgDrive = Object.values(this.hypothalamus.drives).reduce((a, b) => a + b) /
-        Object.keys(this.hypothalamus.drives).length;
-      const arousal = (this.insula.bodyState.energyLevel + this.insula.bodyState.stressLevel) / 2;
-      const homeostasisError = Math.abs(arousal - this.hypothalamus.homeostasisTarget);
-      return {
-        avgDrive: avgDrive.toFixed(2),
-        arousal: arousal.toFixed(2),
-        homeostasisError: homeostasisError.toFixed(2),
-        status: homeostasisError < 0.2 ? 'balanced' : homeostasisError < 0.4 ? 'adjusting' : 'dysregulated'
-      };
-    }
+  encodeEpisode(input, output, sentiment, salience, context = {}) {
+    const ep = {
+      ts: new Date().toISOString(), input, output,
+      sentiment: sentiment.label, salience, context,
+      bodyState: { ...this.insula.bodyState },
+      drives: { ...this.hypothalamus.drives }
+    };
+    this.hippocampus.episodes.push(ep);
+    if (this.hippocampus.episodes.length > this.hippocampus.maxEpisodes)
+      this.hippocampus.episodes.shift();
+    if (salience > 0.6) this.consolidationQueue.push(ep);
+    return ep;
   }
 
-  /* ================================================================
-     SECTION 6 — ReasoningModule
-     ================================================================ */
-  class ReasoningModule {
-    decide(input) {
-      let tokens = [];
-      try {
-        const tokenizer = new natural.WordTokenizer();
-        tokens = tokenizer.tokenize(input);
-      } catch (e) {
-        tokens = input.split(/\s+/);
-      }
-
-      const lower = tokens.map(t => t.toLowerCase());
-      let reasoning = `Reasoning over tokens: ${tokens.join(', ')}.`;
-
-      if (lower.includes('plan')) {
-        reasoning = 'Planning: Analyzing your request and forming a rough plan.';
-      } else if (lower.includes('help') || lower.includes('how')) {
-        reasoning = 'Assistance intent detected: formulating a helpful reply.';
-      }
-
-      MetaLog.log('reasoning', reasoning);
-      return reasoning;
-    }
+  updateInteroception(feedback, metrics) {
+    const bs = this.insula.bodyState;
+    bs.energyLevel       = Math.max(0, Math.min(1, bs.energyLevel - 0.01 + (feedback === 'up' ? 0.05 : -0.03)));
+    const uvr            = metrics.up / Math.max(1, metrics.up + metrics.down);
+    bs.confidenceLevel   = Math.max(0, Math.min(1, 0.5 + uvr * 0.5));
+    bs.stressLevel       = Math.max(0, Math.min(1, bs.stressLevel + (feedback === 'down' ? 0.1 : -0.02)));
+    bs.socialEngagement  = Math.max(0, Math.min(1, 0.3 + (metrics.total / 100) * 0.7));
+    return bs;
   }
 
-  /* ================================================================
-     SECTION 7 — SelfReflectionModule
-     ================================================================ */
-  class SelfReflectionModule {
-    reflect(currentResponseSummary, sentimentScore = 0) {
-      const certainty = Math.abs(sentimentScore);
-      const confidence = Math.round(60 + certainty * 30);
+  updateDrives(nluResult, metrics) {
+    const dr = this.hypothalamus.drives;
+    const uvr = metrics.up / Math.max(1, metrics.up + metrics.down);
+    dr.competence = Math.max(0, Math.min(1, 0.5 + uvr * 0.5));
 
-      selfModel.updateState({ confidence });
+    const diversity = new Set(this.hippocampus.episodes.slice(-20).map(e => e.context.intent)).size / 20;
+    dr.autonomy = Math.max(0, Math.min(1, 0.3 + diversity * 0.7));
 
-      const label = confidence >= 80 ? 'High' : confidence >= 70 ? 'Medium' : 'Low';
-      const reflection =
-        `Reflection: Confidence estimated as ${label} (${confidence}/100, ` +
-        `based on sentiment certainty ${certainty.toFixed(2)}). ` +
-        `Core capabilities: ${selfModel.capabilities.slice(0, 3).join(', ')}.`;
+    const social = ['gratitude','user_apology','humor_request','ask_tom'];
+    const recSoc = this.hippocampus.episodes.slice(-10).filter(e => social.includes(e.context.intent)).length;
+    dr.relatedness = Math.max(0, Math.min(1, 0.3 + (recSoc / 10) * 0.7));
 
-      MetaLog.log('reflection', currentResponseSummary
-        ? currentResponseSummary.slice(0, 80)
-        : reflection);
-      return reflection;
-    }
+    dr.curiosity = Math.max(0, Math.min(1,
+      0.5 + (['ask_metrics','ask_neural'].includes(nluResult.intent) ? 0.4 : 0.15)
+    ));
+
+    const ps = 1 - Math.abs(selfModel.state.policy.verbosityLevel - 0.5) * 0.5;
+    dr.coherence = Math.max(0, Math.min(1, ps));
+    MetaLog.log('hypothalamus', `drives: ${JSON.stringify(
+      Object.fromEntries(Object.entries(dr).map(([k,v]) => [k, v.toFixed(2)]))
+    )}`);
+    return dr;
   }
 
-  /* ================================================================
-     SECTION 7b — NeuralNLU
-     ================================================================ */
-  const NeuralNLU = (() => {
-    const INTENTS = [
-      'ask_self', 'ask_mood', 'ask_thoughts', 'remember', 'recall',
-      'provide_name', 'provide_preference', 'ask_tom',
-      'gratitude', 'user_apology', 'humor_request', 'continue_topic',
-      'time_query', 'export_data', 'ask_metrics', 'chitchat'
-    ];
-    const INTENT_TO_IDX = Object.fromEntries(INTENTS.map((n, i) => [n, i]));
-    const NUM_CLASSES    = INTENTS.length;
-    const CONFIDENCE_THRESHOLD = 0.70;
-    const MODEL_KEY = 'indexeddb://alex-intent-model';
+  consolidateMemories() {
+    const todo = this.consolidationQueue.splice(0, 3);
+    todo.forEach(ep =>
+      MetaLog.log('consolidation', `Replaying: "${ep.input.slice(0,50)}" (s:${ep.salience.toFixed(2)})`)
+    );
+  }
 
-    const SEED_DATA = [
-      { text: 'who are you', intent: 'ask_self' },
-      { text: 'what are you', intent: 'ask_self' },
-      { text: 'tell me about yourself', intent: 'ask_self' },
-      { text: 'what can you do', intent: 'ask_self' },
-      { text: 'describe yourself', intent: 'ask_self' },
-      { text: 'how do you feel', intent: 'ask_mood' },
-      { text: 'what is your mood', intent: 'ask_mood' },
-      { text: 'are you happy', intent: 'ask_mood' },
-      { text: 'what is your current emotion', intent: 'ask_mood' },
-      { text: 'show thoughts', intent: 'ask_thoughts' },
-      { text: 'debug', intent: 'ask_thoughts' },
-      { text: 'how did you decide that', intent: 'ask_thoughts' },
-      { text: 'show internal thoughts', intent: 'ask_thoughts' },
-      { text: 'remember the meeting is at 3', intent: 'remember' },
-      { text: 'remember my favourite color is blue', intent: 'remember' },
-      { text: 'remember this', intent: 'remember' },
-      { text: 'recall what I told you', intent: 'recall' },
-      { text: 'what did you remember', intent: 'recall' },
-      { text: 'do you recall', intent: 'recall' },
-      { text: 'my name is Alex', intent: 'provide_name' },
-      { text: 'call me Jordan', intent: 'provide_name' },
-      { text: 'my name is Sam', intent: 'provide_name' },
-      { text: 'I like short answers', intent: 'provide_preference' },
-      { text: 'I prefer technical detail', intent: 'provide_preference' },
-      { text: 'I like concise responses', intent: 'provide_preference' },
-      { text: 'how do you see me', intent: 'ask_tom' },
-      { text: 'how do you model me', intent: 'ask_tom' },
-      { text: 'what do you know about me', intent: 'ask_tom' },
-      { text: 'thanks', intent: 'gratitude' },
-      { text: 'thank you so much', intent: 'gratitude' },
-      { text: 'I appreciate that', intent: 'gratitude' },
-      { text: 'cheers', intent: 'gratitude' },
-      { text: 'sorry about that', intent: 'user_apology' },
-      { text: 'my bad', intent: 'user_apology' },
-      { text: 'I apologize', intent: 'user_apology' },
-      { text: 'tell me a joke', intent: 'humor_request' },
-      { text: 'say something funny', intent: 'humor_request' },
-      { text: 'make me laugh', intent: 'humor_request' },
-      { text: 'tell me more', intent: 'continue_topic' },
-      { text: 'elaborate please', intent: 'continue_topic' },
-      { text: 'continue', intent: 'continue_topic' },
-      { text: 'what time is it', intent: 'time_query' },
-      { text: 'current time', intent: 'time_query' },
-      { text: 'export training data', intent: 'export_data' },
-      { text: 'download conversation log', intent: 'export_data' },
-      { text: 'show metrics', intent: 'ask_metrics' },
-      { text: 'how accurate are you', intent: 'ask_metrics' },
-      { text: 'show stats', intent: 'ask_metrics' },
-      { text: 'hello', intent: 'chitchat' },
-      { text: 'hi there', intent: 'chitchat' },
-      { text: 'good morning', intent: 'chitchat' },
-      { text: 'what is the meaning of life', intent: 'chitchat' },
-      { text: 'just chatting', intent: 'chitchat' },
-    ];
+  getHomeostasis() {
+    const dr = this.hypothalamus.drives;
+    const avgDrive = Object.values(dr).reduce((a,b) => a+b) / Object.keys(dr).length;
+    const bs = this.insula.bodyState;
+    const arousal = (bs.energyLevel + bs.stressLevel) / 2;
+    const err = Math.abs(arousal - this.hypothalamus.homeostasisTarget);
+    return {
+      avgDrive: avgDrive.toFixed(2), arousal: arousal.toFixed(2),
+      homeostasisError: err.toFixed(2),
+      status: err < 0.2 ? 'balanced' : err < 0.4 ? 'adjusting' : 'dysregulated'
+    };
+  }
+}
 
-    let _vocab = new Map(), _vocabSize = 1;
-    let _model = null, _ready = false;
-    let _cachedInput = null, _cachedIntent = null, _cachedConf = 0;
+/* ================================================================
+   REASONING MODULE
+   ================================================================ */
+class ReasoningModule {
+  decide(input) {
+    const tokens = input.split(/\s+/);
+    const lower  = tokens.map(t => t.toLowerCase());
+    let r = `Reasoning over: ${tokens.slice(0,8).join(', ')}.`;
+    if (lower.includes('plan'))              r = 'Planning: forming a rough plan.';
+    else if (lower.includes('help') || lower.includes('how')) r = 'Assistance intent detected.';
+    MetaLog.log('reasoning', r);
+    return r;
+  }
+}
 
-    function _tokenize(text) {
-      return text.toLowerCase().split(/\s+/).map(t => t.replace(/[^\w]/g, '')).filter(Boolean);
-    }
+/* ================================================================
+   SELF REFLECTION MODULE
+   ================================================================ */
+class SelfReflectionModule {
+  reflect(summary, sentimentScore = 0) {
+    const certainty  = Math.abs(sentimentScore);
+    const confidence = Math.round(60 + certainty * 30);
+    selfModel.updateState({ confidence });
+    const label = confidence >= 80 ? 'High' : confidence >= 70 ? 'Medium' : 'Low';
+    const r = `Reflection: Confidence ${label} (${confidence}/100).`;
+    MetaLog.log('reflection', summary ? summary.slice(0,80) : r);
+    return r;
+  }
+}
 
-    function _buildVocab(samples) {
-      _vocab.clear(); _vocabSize = 1;
-      samples.forEach(s => _tokenize(s.text).forEach(w => {
-        if (!_vocab.has(w)) _vocab.set(w, _vocabSize++);
-      }));
-    }
+/* ================================================================
+   NEURAL NLU (TensorFlow.js — optional, loads lazily from CDN)
+   If TF.js is unavailable, the system falls back to rule-based only.
+   ================================================================ */
+const NeuralNLU = (() => {
+  const INTENTS = [
+    'ask_self','ask_mood','ask_thoughts','remember','recall',
+    'provide_name','provide_preference','ask_tom',
+    'gratitude','user_apology','humor_request','continue_topic',
+    'time_query','export_data','ask_metrics','chitchat'
+  ];
+  const INTENT_TO_IDX = Object.fromEntries(INTENTS.map((n,i) => [n,i]));
+  const NUM_CLASSES = INTENTS.length;
+  const CONF_THRESHOLD = 0.70;
+  const MODEL_KEY = 'indexeddb://alex-intent-model';
 
-    function _encode(text) {
-      const x = new Array(_vocabSize).fill(0);
-      _tokenize(text).forEach(w => {
-        const idx = _vocab.get(w);
-        if (idx) x[idx] += 1;
-      });
-      return x;
-    }
+  const SEED_DATA = [
+    {text:'who are you',intent:'ask_self'},{text:'what are you',intent:'ask_self'},
+    {text:'tell me about yourself',intent:'ask_self'},{text:'what can you do',intent:'ask_self'},
+    {text:'how do you feel',intent:'ask_mood'},{text:'what is your mood',intent:'ask_mood'},
+    {text:'are you happy',intent:'ask_mood'},
+    {text:'show thoughts',intent:'ask_thoughts'},{text:'debug',intent:'ask_thoughts'},
+    {text:'how did you decide that',intent:'ask_thoughts'},
+    {text:'remember the meeting is at 3',intent:'remember'},
+    {text:'remember my favourite color is blue',intent:'remember'},
+    {text:'recall what I told you',intent:'recall'},{text:'do you recall',intent:'recall'},
+    {text:'my name is Alex',intent:'provide_name'},{text:'call me Jordan',intent:'provide_name'},
+    {text:'I like short answers',intent:'provide_preference'},
+    {text:'I prefer technical detail',intent:'provide_preference'},
+    {text:'how do you see me',intent:'ask_tom'},{text:'what do you know about me',intent:'ask_tom'},
+    {text:'thanks',intent:'gratitude'},{text:'thank you so much',intent:'gratitude'},
+    {text:'I appreciate that',intent:'gratitude'},{text:'cheers',intent:'gratitude'},
+    {text:'sorry about that',intent:'user_apology'},{text:'my bad',intent:'user_apology'},
+    {text:'tell me a joke',intent:'humor_request'},{text:'say something funny',intent:'humor_request'},
+    {text:'tell me more',intent:'continue_topic'},{text:'elaborate please',intent:'continue_topic'},
+    {text:'what time is it',intent:'time_query'},{text:'current time',intent:'time_query'},
+    {text:'export training data',intent:'export_data'},
+    {text:'show metrics',intent:'ask_metrics'},{text:'how accurate are you',intent:'ask_metrics'},
+    {text:'hello',intent:'chitchat'},{text:'hi there',intent:'chitchat'},
+    {text:'good morning',intent:'chitchat'},{text:'just chatting',intent:'chitchat'},
+  ];
 
-    function _encodeLabel(intent) {
-      const y = new Array(NUM_CLASSES).fill(0);
-      y[INTENT_TO_IDX[intent] ?? INTENT_TO_IDX['chitchat']] = 1;
-      return y;
-    }
+  let _vocab=new Map(), _vocabSize=1, _model=null, _ready=false;
+  let _cachedInput=null, _cachedIntent=null, _cachedConf=0;
 
-    function _buildModel(inputDim) {
-      const m = tf.sequential();
-      m.add(tf.layers.dense({ units: 64, activation: 'relu', inputShape: [inputDim] }));
-      m.add(tf.layers.dropout({ rate: 0.2 }));
-      m.add(tf.layers.dense({ units: NUM_CLASSES, activation: 'softmax' }));
-      m.compile({ optimizer: tf.train.adam(0.001), loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
-      return m;
-    }
+  function _tok(t) { return t.toLowerCase().split(/\s+/).map(w=>w.replace(/[^\w]/g,'')).filter(Boolean); }
+  function _buildVocab(s) { _vocab.clear(); _vocabSize=1; s.forEach(x=>_tok(x.text).forEach(w=>{ if(!_vocab.has(w)) _vocab.set(w,_vocabSize++); })); }
+  function _encode(t) { const x=new Array(_vocabSize).fill(0); _tok(t).forEach(w=>{ const i=_vocab.get(w); if(i) x[i]++; }); return x; }
+  function _encodeLabel(intent) { const y=new Array(NUM_CLASSES).fill(0); y[INTENT_TO_IDX[intent]??INTENT_TO_IDX['chitchat']]=1; return y; }
 
-    async function train(extraSamples = [], onProgress = null) {
-      if (typeof tf === 'undefined') {
-        MetaLog.log('neural', 'TF.js not available — skipping neural training.');
-        return false;
-      }
-      const samples = [...SEED_DATA, ...extraSamples];
-      _buildVocab(samples);
+  function _buildModel(dim) {
+    if(typeof tf==='undefined') return null;
+    const m=tf.sequential();
+    m.add(tf.layers.dense({units:64,activation:'relu',inputShape:[dim]}));
+    m.add(tf.layers.dropout({rate:0.2}));
+    m.add(tf.layers.dense({units:NUM_CLASSES,activation:'softmax'}));
+    m.compile({optimizer:tf.train.adam(0.001),loss:'categoricalCrossentropy',metrics:['accuracy']});
+    return m;
+  }
 
-      const xs = tf.tensor2d(samples.map(s => _encode(s.text)));
-      const ys = tf.tensor2d(samples.map(s => _encodeLabel(s.intent)));
+  async function train(extra=[], onProgress=null) {
+    if(typeof tf==='undefined') { MetaLog.log('neural','TF.js not loaded.'); return false; }
+    const samples=[...SEED_DATA,...extra];
+    _buildVocab(samples);
+    const xs=tf.tensor2d(samples.map(s=>_encode(s.text)));
+    const ys=tf.tensor2d(samples.map(s=>_encodeLabel(s.intent)));
+    _model=_buildModel(_vocabSize);
+    await _model.fit(xs,ys,{epochs:40,batchSize:8,shuffle:true,
+      callbacks:{onEpochEnd:(epoch,logs)=>{ if(onProgress) onProgress(epoch,logs); }}});
+    xs.dispose(); ys.dispose();
+    try {
+      await _model.save(MODEL_KEY);
+      localStorage.setItem('alex_vocab',JSON.stringify([..._vocab.entries()]));
+      localStorage.setItem('alex_vocab_size',String(_vocabSize));
+    } catch(e) { MetaLog.log('neural',`Save failed: ${e.message}`); }
+    _ready=true;
+    MetaLog.log('neural',`Trained on ${samples.length} samples.`);
+    return true;
+  }
 
-      _model = _buildModel(_vocabSize);
-
-      await _model.fit(xs, ys, {
-        epochs: 40, batchSize: 8, shuffle: true,
-        callbacks: {
-          onEpochEnd: (epoch, logs) => { if (onProgress) onProgress(epoch, logs); }
-        }
-      });
-
-      xs.dispose(); ys.dispose();
-
-      try {
-        await _model.save(MODEL_KEY);
-        localStorage.setItem('alex_nlu_vocab', JSON.stringify([..._vocab.entries()]));
-        localStorage.setItem('alex_nlu_vocab_size', String(_vocabSize));
-        MetaLog.log('neural', `Model trained (${samples.length} samples) and saved.`);
-      } catch (e) {
-        MetaLog.log('neural', `Model trained but save failed: ${e.message}`);
-      }
-
-      _ready = true;
+  async function load() {
+    if(typeof tf==='undefined') return false;
+    try {
+      _model=await tf.loadLayersModel(MODEL_KEY);
+      const sv=localStorage.getItem('alex_vocab');
+      const ss=localStorage.getItem('alex_vocab_size');
+      if(!sv||!ss) throw new Error('Vocab missing');
+      _vocab=new Map(JSON.parse(sv));
+      _vocabSize=parseInt(ss,10);
+      _ready=true;
+      MetaLog.log('neural',`Loaded from IndexedDB (vocab: ${_vocabSize}).`);
       return true;
-    }
+    } catch(e) { MetaLog.log('neural',`Load failed: ${e.message}`); return false; }
+  }
 
-    async function load() {
-      if (typeof tf === 'undefined') return false;
-      try {
-        _model = await tf.loadLayersModel(MODEL_KEY);
-        const storedVocab = localStorage.getItem('alex_nlu_vocab');
-        const storedSize  = localStorage.getItem('alex_nlu_vocab_size');
-        if (!storedVocab || !storedSize) throw new Error('Vocab missing');
-        _vocab     = new Map(JSON.parse(storedVocab));
-        _vocabSize = parseInt(storedSize, 10);
-        _ready     = true;
-        MetaLog.log('neural', `Model loaded from IndexedDB (vocab size: ${_vocabSize}).`);
-        return true;
-      } catch (e) {
-        MetaLog.log('neural', `Load failed (will need training): ${e.message}`);
-        return false;
+  async function primeForInput(text) {
+    if(!_ready||!_model) { _cachedInput=text; _cachedIntent=null; _cachedConf=0; return; }
+    try {
+      const x=tf.tensor2d([_encode(text)]);
+      const probs=_model.predict(x);
+      const data=await probs.data();
+      x.dispose(); probs.dispose();
+      let mi=0, mv=data[0];
+      for(let i=1;i<data.length;i++) if(data[i]>mv){mv=data[i];mi=i;}
+      _cachedInput=text; _cachedIntent=INTENTS[mi]; _cachedConf=mv;
+      MetaLog.log('neural',`Pred: ${_cachedIntent} (${mv.toFixed(2)})`);
+    } catch(e) { _cachedInput=text; _cachedIntent=null; _cachedConf=0; }
+  }
+
+  function getCachedIntent(text) {
+    if(_cachedInput===text && _cachedIntent && _cachedConf>=CONF_THRESHOLD)
+      return { intent:_cachedIntent, confidence:_cachedConf };
+    return null;
+  }
+
+  return { get ready(){return _ready;}, INTENTS, SEED_DATA, train, load, primeForInput, getCachedIntent };
+})();
+
+/* ================================================================
+   NLU MODULE  (rule-based, no CDN)
+   ================================================================ */
+class NLUModule {
+  constructor(emotionModule) {
+    this.emotion = emotionModule;
+    this._rules = [
+      { rex:/(who|what) are you/i,                             intent:'ask_self' },
+      { rex:/\b(show thoughts|debug|how did you decide)\b/i,   intent:'ask_thoughts' },
+      { rex:/(how do you feel|your mood|your emotion|mood)/i,  intent:'ask_mood' },
+      { rex:/\bremember[\s:]+(.+)/i,                           intent:'remember' },
+      { rex:/\brecall\b/i,                                     intent:'recall' },
+      { rex:/my name is\s+([a-zA-Z0-9_-]+)/i,                intent:'provide_name' },
+      { rex:/(i like|i prefer)\s+(.+)/i,                      intent:'provide_preference' },
+      { rex:/(how do you see me|how do you model me|know about me)/i, intent:'ask_tom' },
+      { rex:/\b(thanks|thank you|appreciate|cheers)\b/i,      intent:'gratitude' },
+      { rex:/\b(sorry|apologize|my bad|apologies)\b/i,        intent:'user_apology' },
+      { rex:/\b(joke|funny|make me laugh|humor)\b/i,          intent:'humor_request' },
+      { rex:/\b(continue|more|elaborate|explain further|go on)\b/i, intent:'continue_topic' },
+      { rex:/\b(what time|current time|time is it)\b/i,       intent:'time_query' },
+      { rex:/\b(export|download|training data|conversation log)\b/i, intent:'export_data' },
+      { rex:/\b(metrics|accuracy|stats|how accurate)\b/i,     intent:'ask_metrics' },
+      { rex:/\b(train neural|train nlu|train model)\b/i,      intent:'train_neural' },
+      { rex:/\b(neural status|nlu status|is neural ready)\b/i, intent:'ask_neural' },
+    ];
+  }
+
+  parse(input) {
+    let intent = 'chitchat';
+    const entities = [];
+
+    for (const rule of this._rules) {
+      const m = input.match(rule.rex);
+      if (m) {
+        intent = rule.intent;
+        for (let i = 1; i < m.length; i++) if (m[i]) entities.push(m[i].trim());
+        break;
       }
     }
 
-    async function primeForInput(text) {
-      if (!_ready || !_model) {
-        _cachedInput = text; _cachedIntent = null; _cachedConf = 0;
+    const neural = NeuralNLU.getCachedIntent(input);
+    if (neural) {
+      MetaLog.log('neural', `Override: "${intent}"→"${neural.intent}" (${neural.confidence.toFixed(2)})`);
+      intent = neural.intent;
+    }
+
+    const sentiment = this.emotion.analyzeSentiment(input);
+    MetaLog.log('nlu', `Intent=${intent}, sentiment=${sentiment.label}`);
+    return { intent, entities, sentiment, raw: input };
+  }
+}
+
+/* ================================================================
+   USER MODEL
+   ================================================================ */
+class UserModel {
+  constructor() {
+    this.name=null; this.preferences=[]; this.moodScore=0; this.messageCount=0;
+    try { const s=sessionStorage.getItem('um_alex'); if(s) Object.assign(this,JSON.parse(s)); } catch{}
+  }
+  _save() {
+    try { sessionStorage.setItem('um_alex',JSON.stringify({
+      name:this.name, preferences:this.preferences,
+      moodScore:this.moodScore, messageCount:this.messageCount
+    })); } catch{}
+  }
+  updateFromInput(nlu, raw) {
+    if (nlu.intent==='provide_name' && nlu.entities[0]) this.name=nlu.entities[0];
+    else { const m=raw.match(/my name is\s+([A-Za-z0-9_-]+)/i); if(m) this.name=m[1]; }
+    if (nlu.intent==='provide_preference' && nlu.entities.length)
+      this.preferences.push(nlu.entities[nlu.entities.length-1]);
+    if (/short answer/i.test(raw))          this.preferences.push('short answers');
+    if (/more detail|technical/i.test(raw)) this.preferences.push('technical detail');
+    this.messageCount++;
+    const w=1/this.messageCount;
+    this.moodScore=(1-w)*this.moodScore + w*(nlu.sentiment.score||0);
+    this._save();
+    MetaLog.log('usermodel',`name=${this.name}, mood=${this.moodScore.toFixed(2)}`);
+  }
+  summary() {
+    const md=this.moodScore>0.3?'generally positive':this.moodScore<-0.3?'generally negative':'mixed/neutral';
+    const np=this.name?`named ${this.name}`:'unknown name';
+    const pp=this.preferences.length?`prefers ${[...new Set(this.preferences)].slice(-3).join(', ')}`:'no known preferences';
+    return `User ${np}, mood ${md}, ${pp}.`;
+  }
+}
+
+/* ================================================================
+   POLICY MODULE  (FIXED adjustPolicyOnTurn)
+   ================================================================ */
+class PolicyModule {
+  constructor() {
+    this.verbosityLevel=0.5; this.humorLevel=0.3; this.cautionLevel=0.4;
+    this._load(); this._sync();
+  }
+  _c(v) { return Math.max(0,Math.min(1,v)); }
+  _load() {
+    try {
+      const s=JSON.parse(localStorage.getItem('alex_policy'));
+      if(s && typeof s.verbosityLevel==='number') {
+        this.verbosityLevel=this._c(s.verbosityLevel);
+        this.humorLevel=this._c(s.humorLevel);
+        this.cautionLevel=this._c(s.cautionLevel);
+      }
+    } catch{}
+  }
+  _save() {
+    try { localStorage.setItem('alex_policy',JSON.stringify({
+      verbosityLevel:this.verbosityLevel, humorLevel:this.humorLevel, cautionLevel:this.cautionLevel
+    })); } catch{}
+  }
+  _sync() {
+    selfModel.updateState({ policy:{
+      verbosityLevel:this.verbosityLevel, humorLevel:this.humorLevel, cautionLevel:this.cautionLevel
+    }});
+  }
+  registerFeedback(type) {
+    if(type==='up') {
+      selfModel.updateState({totalUpVotes:selfModel.state.totalUpVotes+1,lastFeedback:'up'});
+      this.verbosityLevel=this._c(this.verbosityLevel+0.04);
+      this.humorLevel=this._c(this.humorLevel+0.03);
+      this.cautionLevel=this._c(this.cautionLevel-0.02);
+    } else {
+      selfModel.updateState({totalDownVotes:selfModel.state.totalDownVotes+1,lastFeedback:'down'});
+      this.cautionLevel=this._c(this.cautionLevel+0.08);
+      this.verbosityLevel=this._c(this.verbosityLevel-0.05);
+      this.humorLevel=this._c(this.humorLevel-0.05);
+    }
+    this._sync(); this._save();
+    MetaLog.log('feedback',`type=${type}`);
+    renderStatusBar();
+  }
+  // FIXED: was broken with incomplete statement
+  adjustPolicyOnTurn(intent, sentimentLabel) {
+    if (intent==='ask_mood'||intent==='ask_self')
+      this.cautionLevel=this._c(this.cautionLevel-0.05);
+    if (sentimentLabel==='Negative') {
+      this.cautionLevel=this._c(this.cautionLevel+0.08);
+      this.humorLevel=this._c(this.humorLevel-0.05);
+    }
+    if (sentimentLabel==='Positive')
+      this.verbosityLevel=this._c(this.verbosityLevel+0.03);
+    this._sync();
+  }
+  applyResponseStyle(text) {
+    let out=text;
+    if      (this.cautionLevel>0.65) out='I might be mistaken, but '+out;
+    else if (this.cautionLevel>0.5)  out='It seems that '+out;
+    if (this.verbosityLevel>0.75)    out+='\n\nFeel free to ask me to elaborate.';
+    if (this.humorLevel>0.65)        out+=' 🙂';
+    return out;
+  }
+}
+
+/* ================================================================
+   TRAINING LOGGER & METRICS
+   ================================================================ */
+class TrainingLogger {
+  constructor() { this.conversations=[]; this.MAX=500; }
+  logTurn(userInput, botOutput, nlu) {
+    this.conversations.push({
+      ts:new Date().toISOString(), userInput, botOutput,
+      feedback:selfModel.state.lastFeedback, intent:nlu.intent,
+      sentiment:nlu.sentiment.label, sentScore:nlu.sentiment.score,
+      policy:{...selfModel.state.policy}
+    });
+    if(this.conversations.length>this.MAX) this.conversations.shift();
+  }
+  exportJSON() {
+    try {
+      const blob=new Blob([JSON.stringify(this.conversations,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url; a.download=`alex-training-${Date.now()}.json`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),150);
+      return `Exported ${this.conversations.length} turn(s).`;
+    } catch(e) { return `Export failed: ${e.message}`; }
+  }
+}
+
+class TrainingMetrics {
+  constructor() { this.intentFeedback={}; this.totalResponses=0; }
+  record(intent, feedback) {
+    this.totalResponses++;
+    if(!this.intentFeedback[intent]) this.intentFeedback[intent]={up:0,down:0,total:0};
+    this.intentFeedback[intent].total++;
+    if(feedback==='up')   this.intentFeedback[intent].up++;
+    if(feedback==='down') this.intentFeedback[intent].down++;
+  }
+  report() {
+    const up=selfModel.state.totalUpVotes, down=selfModel.state.totalDownVotes, total=up+down;
+    const ratio=total>0?((up/total)*100).toFixed(1):'n/a';
+    let lines=[
+      `Overall approval: ${ratio}% (👍${up}/👎${down} of ${total} rated)`,
+      `Total turns: ${this.totalResponses}`, '', 'Per-intent:'
+    ];
+    for(const [k,v] of Object.entries(this.intentFeedback)) {
+      const pct=v.total>0?((v.up/v.total)*100).toFixed(0)+'%':'unrated';
+      lines.push(`  ${k}: ${pct} (${v.up}↑${v.down}↓/${v.total})`);
+    }
+    if(!Object.keys(this.intentFeedback).length)
+      lines.push('  No rated turns yet — use 👍/👎 to build metrics.');
+    return lines.join('\n');
+  }
+}
+
+/* ================================================================
+   COORDINATOR
+   ================================================================ */
+class Coordinator {
+  constructor() {
+    this.memory     = new MemoryModule();
+    this.emotion    = new EmotionModule();
+    this.limbic     = new LimbicSystem();
+    this.reasoning  = new ReasoningModule();
+    this.reflection = new SelfReflectionModule();
+    this.nlu        = new NLUModule(this.emotion);
+    this.userModel  = new UserModel();
+    this.policy     = new PolicyModule();
+    this.logger     = new TrainingLogger();
+    this.metrics    = new TrainingMetrics();
+  }
+
+  _ce(v) { return Math.max(0,Math.min(1,v)); }
+
+  process(input) {
+    MetaLog.log('input',`User: "${input.slice(0,80)}"`);
+
+    const nlu      = this.nlu.parse(input);
+    const salience = this.limbic.detectSalience(input, nlu.sentiment, nlu.intent);
+    MetaLog.log('amygdala',`salience:${salience.salience.toFixed(2)} threat:${salience.threatLevel.toFixed(2)} benefit:${salience.benefitLevel.toFixed(2)}`);
+    selfModel.updateEmotions({salience: salience.salience});
+
+    this.userModel.updateFromInput(nlu, input);
+    this.policy.adjustPolicyOnTurn(nlu.intent, nlu.sentiment.label);
+    const reasoningText = this.reasoning.decide(input);
+
+    let memPart = '';
+    if (nlu.intent==='remember') {
+      const toRemember = nlu.entities[0] || input;
+      this.memory.store('long','lastInput',toRemember);
+      memPart = 'I\'ll remember that. ';
+    } else if (nlu.intent==='recall') {
+      const r = this.memory.recall('long','lastInput');
+      memPart = r ? `I recall: "${r}". ` : 'Nothing stored yet. ';
+    }
+
+    let base = this.policy.verbosityLevel >= 0.65
+      ? nlu.sentiment.description + '\n' + reasoningText + '\n'
+      : reasoningText + ' ';
+    base += memPart;
+
+    if (nlu.intent==='ask_self') {
+      base += `\nI am ${selfModel.identity.name}, ${selfModel.identity.version}.\n` +
+        `${selfModel.identity.description}.\n\n` +
+        `Capabilities:\n${selfModel.capabilities.map(c=>'• '+c).join('\n')}\n\n` +
+        `Limitations:\n${selfModel.limitations.map(l=>'• '+l).join('\n')}`;
+    }
+
+    if (nlu.intent==='ask_mood') {
+      const e=selfModel.emotionalVector;
+      base += `\nMood vector:\n` +
+        `  happiness:   ${e.happiness.toFixed(2)}\n` +
+        `  curiosity:   ${e.curiosity.toFixed(2)}\n` +
+        `  frustration: ${e.frustration.toFixed(2)}\n` +
+        `  engagement:  ${e.engagement.toFixed(2)}\n` +
+        `  salience:    ${e.salience.toFixed(2)}`;
+    }
+
+    if (nlu.intent==='ask_thoughts')
+      base += '\n\n— Trace (last 5 steps) —\n' + MetaLog.recent(5);
+
+    if (nlu.intent==='ask_tom')
+      base += `\nUser model: ${this.userModel.summary()}`;
+
+    if (nlu.intent==='gratitude') {
+      base += `\nYou're welcome! Happy to help.`;
+      selfModel.updateEmotions({happiness:this._ce(selfModel.emotionalVector.happiness+0.1)});
+    }
+
+    if (nlu.intent==='user_apology')
+      base += `\nNo need to apologize — what would you like to explore?`;
+
+    if (nlu.intent==='humor_request') {
+      const jokes = [
+        "Why do programmers prefer dark mode? Because light attracts bugs. 🐛",
+        "A SQL query walks into a bar and asks two tables: 'Can I join you?'",
+        "I told my neural net a joke. It said the training data was insufficient. 🤖",
+        "Why did the AI go to therapy? Too many deep issues."
+      ];
+      base += `\n${jokes[Math.floor(Math.random()*jokes.length)]}`;
+      selfModel.updateEmotions({happiness:this._ce(selfModel.emotionalVector.happiness+0.15)});
+    }
+
+    if (nlu.intent==='continue_topic') {
+      const last = this.memory.recall('short','recentInput');
+      base += last
+        ? `\nContinuing from: "${last.slice(0,60)}…" — elaborating further.`
+        : `\nNo prior topic in short-term memory. What would you like me to expand on?`;
+    }
+
+    if (nlu.intent==='time_query')
+      base += `\nCurrent local time: ${new Date().toLocaleTimeString()}.`;
+
+    if (nlu.intent==='export_data')
+      base += `\n${this.logger.exportJSON()}`;
+
+    if (nlu.intent==='ask_metrics')
+      base += `\n\n— Metrics —\n${this.metrics.report()}`;
+
+    if (nlu.intent==='ask_neural') {
+      base += NeuralNLU.ready
+        ? `\nNeural NLU active. Confidence threshold: 70%.`
+        : `\nNeural NLU not trained. Use the dev panel or say "train neural".`;
+    }
+
+    if (nlu.intent==='train_neural') {
+      base += `\nStarting training on ${NeuralNLU.SEED_DATA.length} seed samples… watch the dev panel.`;
+      const extra = this.logger.conversations
+        .filter(t=>t.feedback==='up'&&t.intent!=='chitchat')
+        .map(t=>({text:t.userInput,intent:t.intent}));
+      NeuralNLU.train(extra,(epoch,logs)=>{
+        MetaLog.log('neural',`Epoch ${epoch+1}/40 loss:${logs.loss.toFixed(3)} acc:${(logs.acc??logs.accuracy??0).toFixed(3)}`);
+      }).then(ok=>MetaLog.log('neural',ok?'Training complete ✓':'Training failed ✗'));
+    }
+
+    const lower=input.toLowerCase();
+    if (lower.includes('self-aware')||lower.includes('reflect')||lower.includes('introspect'))
+      base += '\n'+this.reflection.reflect(base.slice(0,100),nlu.sentiment.score);
+
+    if (this.userModel.name) base=`Hi ${this.userModel.name}! `+base;
+    base = this.policy.applyResponseStyle(base.trim());
+    base += `\n[mood: happiness ${selfModel.emotionalVector.happiness.toFixed(2)}, salience ${selfModel.emotionalVector.salience.toFixed(2)}]`;
+
+    MetaLog.log('output','Response generated.');
+
+    this.limbic.encodeEpisode(input,base,nlu.sentiment,salience.salience,
+      {intent:nlu.intent,userMood:this.userModel.moodScore});
+    this.limbic.updateInteroception(selfModel.state.lastFeedback,{
+      up:selfModel.state.totalUpVotes, down:selfModel.state.totalDownVotes,
+      total:this.metrics.totalResponses
+    });
+    this.limbic.updateDrives(nlu,{
+      up:selfModel.state.totalUpVotes, down:selfModel.state.totalDownVotes
+    });
+    this.limbic.consolidateMemories();
+    this.logger.logTurn(input,base,nlu);
+    this.metrics.record(nlu.intent,selfModel.state.lastFeedback);
+
+    return base || 'Processing complete.';
+  }
+}
+
+/* ================================================================
+   UI HELPERS
+   ================================================================ */
+function moodFromHappiness(h) {
+  if (h >= 0.65) return { label:'happy',      color:'#6af7a2' };
+  if (h <= 0.35) return { label:'frustrated',  color:'#f76a6a' };
+  return               { label:'neutral',      color:'#f7d76a' };
+}
+
+function renderStatusBar() {
+  const { happiness } = selfModel.emotionalVector;
+  const { label, color } = moodFromHappiness(happiness);
+  const pill  = document.getElementById('status-mood-pill');
+  const lbl   = document.getElementById('status-mood-label');
+  const votes = document.getElementById('status-votes');
+  if (pill)  { pill.style.backgroundColor=color; pill.style.boxShadow=`0 0 6px ${color}`; }
+  if (lbl)   lbl.textContent=`mood: ${label}`;
+  if (votes) votes.textContent=`👍 ${selfModel.state.totalUpVotes} 👎 ${selfModel.state.totalDownVotes}`;
+}
+
+function stat(label, value) {
+  return `<div class="neuro-stat"><span class="nsl">${label}</span><span class="nsv">${value}</span></div>`;
+}
+
+function renderNeuro(coordinator) {
+  const { amygdala, hippocampus, consolidationQueue, insula, hypothalamus } = coordinator.limbic;
+  const bs = insula.bodyState;
+  const dr = hypothalamus.drives;
+  const hm = coordinator.limbic.getHomeostasis();
+
+  const limbicHTML =
+    stat('Amygdala (salients)', amygdala.recentSalients.length) +
+    stat('Hippocampus (eps)', hippocampus.episodes.length) +
+    stat('Consolidation queue', consolidationQueue.length);
+
+  const interoHTML =
+    stat('Energy', bs.energyLevel.toFixed(2)) +
+    stat('Confidence', bs.confidenceLevel.toFixed(2)) +
+    stat('Stress', bs.stressLevel.toFixed(2)) +
+    stat('Social', bs.socialEngagement.toFixed(2));
+
+  const drivesHTML =
+    stat('Competence', dr.competence.toFixed(2)) +
+    stat('Autonomy', dr.autonomy.toFixed(2)) +
+    stat('Relatedness', dr.relatedness.toFixed(2)) +
+    stat('Curiosity', dr.curiosity.toFixed(2)) +
+    stat('Coherence', dr.coherence.toFixed(2));
+
+  const homeHTML =
+    stat('Arousal', hm.arousal) +
+    stat('Avg Drive', hm.avgDrive) +
+    stat('Error', hm.homeostasisError) +
+    stat('Status', hm.status);
+
+  // Mobile
+  ['m-limbic-status','d-limbic-status'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=limbicHTML; });
+  ['m-interoception-status','d-interoception-status'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=interoHTML; });
+  ['m-drives-status','d-drives-status'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=drivesHTML; });
+  ['m-homeostasis-status','d-homeostasis-status'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=homeHTML; });
+}
+
+function addMessage(text, isUser, coordinator) {
+  const win = document.getElementById('chat-window');
+  const div = document.createElement('div');
+  div.classList.add('message', isUser ? 'user-message' : 'bot-message');
+
+  if (!isUser) {
+    const { color } = moodFromHappiness(selfModel.emotionalVector.happiness);
+    div.style.borderLeftColor = color;
+  }
+
+  const span = document.createElement('span');
+  span.classList.add('msg-text');
+  span.textContent = text;
+  div.appendChild(span);
+
+  if (!isUser && coordinator) {
+    const row = document.createElement('div');
+    row.classList.add('feedback-row');
+
+    const up = document.createElement('button');
+    up.textContent='👍'; up.setAttribute('aria-label','Thumbs up');
+
+    const dn = document.createElement('button');
+    dn.textContent='👎'; dn.setAttribute('aria-label','Thumbs down');
+
+    up.addEventListener('click', () => {
+      coordinator.policy.registerFeedback('up');
+      div.style.borderLeftColor = moodFromHappiness(selfModel.emotionalVector.happiness).color;
+      renderStatusBar(); renderNeuro(coordinator);
+    });
+    dn.addEventListener('click', () => {
+      coordinator.policy.registerFeedback('down');
+      div.style.borderLeftColor = moodFromHappiness(selfModel.emotionalVector.happiness).color;
+      renderStatusBar(); renderNeuro(coordinator);
+    });
+
+    row.appendChild(up); row.appendChild(dn);
+    div.appendChild(row);
+  }
+
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+/* ================================================================
+   MOBILE PANEL TABS
+   ================================================================ */
+function wireMobileTabs() {
+  const tabBtns   = document.querySelectorAll('.tab-btn');
+  const panelArea = document.getElementById('panels-area');
+  let activePanel = null;
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panelId = 'panel-' + btn.dataset.panel;
+      const panel   = document.getElementById(panelId);
+
+      if (activePanel === panelId && panelArea.classList.contains('open')) {
+        // Close
+        panelArea.classList.remove('open');
+        document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+        tabBtns.forEach(b => b.classList.remove('active'));
+        activePanel = null;
+      } else {
+        // Switch
+        document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+        tabBtns.forEach(b => b.classList.remove('active'));
+        panel.classList.add('active');
+        btn.classList.add('active');
+        panelArea.classList.add('open');
+        activePanel = panelId;
+        if (panelId === 'panel-trace') MetaLog._refreshPanel();
+      }
+    });
+  });
+}
+
+/* ================================================================
+   NEURAL STATUS HELPERS
+   ================================================================ */
+function updateNeuralStatusUI(ready) {
+  ['neural-status','d-neural-status'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = ready ? '✓ Neural NLU active' : '⚠ Rule-based only (not trained)';
+    el.style.color = ready ? '#6af7a2' : '#f7a26a';
+  });
+}
+
+/* ================================================================
+   BOOT
+   ================================================================ */
+(function boot() {
+  const inputEl = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('send-button');
+
+  // Fix #chat-col for desktop layout
+  const chatCol = document.getElementById('chat-col');
+  chatCol.style.display = '';  // remove inline 'contents' — CSS handles it
+
+  wireMobileTabs();
+
+  const coordinator = new Coordinator();
+  window._coordinator = coordinator;
+
+  // Try loading TF.js lazily (non-blocking)
+  const tfScript = document.createElement('script');
+  tfScript.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js';
+  tfScript.onload = () => {
+    MetaLog.log('system','TF.js loaded lazily.');
+    NeuralNLU.load().then(ok => updateNeuralStatusUI(ok));
+  };
+  tfScript.onerror = () => MetaLog.log('system','TF.js unavailable — neural NLU disabled.');
+  document.head.appendChild(tfScript);
+
+  // Dev panel train buttons (both mobile + desktop)
+  function wireTrainButton(btnId, progressId, withFeedback) {
+    const btn = document.getElementById(btnId);
+    const prg = document.getElementById(progressId);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      if (typeof tf === 'undefined') {
+        if (prg) prg.textContent = '✗ TF.js not loaded — cannot train.';
         return;
       }
-      try {
-        const x = tf.tensor2d([_encode(text)]);
-        const probs = _model.predict(x);
-        const data  = await probs.data();
-        x.dispose(); probs.dispose();
-
-        let maxIdx = 0, maxVal = data[0];
-        for (let i = 1; i < data.length; i++) {
-          if (data[i] > maxVal) { maxVal = data[i]; maxIdx = i; }
-        }
-        _cachedInput = text; _cachedIntent = INTENTS[maxIdx]; _cachedConf = maxVal;
-        MetaLog.log('neural', `Predicted: ${_cachedIntent} (conf: ${maxVal.toFixed(2)})`);
-      } catch (e) {
-        _cachedInput = text; _cachedIntent = null; _cachedConf = 0;
-        MetaLog.log('neural', `Prediction error: ${e.message}`);
-      }
-    }
-
-    function getCachedIntent(text) {
-      if (_cachedInput === text && _cachedIntent && _cachedConf >= CONFIDENCE_THRESHOLD) {
-        return { intent: _cachedIntent, confidence: _cachedConf };
-      }
-      return null;
-    }
-
-    return { get ready() { return _ready; }, get modelKey() { return MODEL_KEY; },
-             INTENTS, SEED_DATA, train, load, primeForInput, getCachedIntent };
-  })();
-
-  /* ================================================================
-     SECTION 8 — NLUModule
-     ================================================================ */
-  class NLUModule {
-    constructor(emotionModule) {
-      this.emotionModule = emotionModule;
-      this._intentRules = [
-        { rex: /(who|what) are you/i,                             intent: 'ask_self' },
-        { rex: /\b(show thoughts|debug|how did you decide)\b/i,   intent: 'ask_thoughts' },
-        { rex: /(how do you feel|your mood|your emotion|mood)/i,  intent: 'ask_mood' },
-        { rex: /\bremember[\s:]+(.+)/i,                           intent: 'remember' },
-        { rex: /\brecall\b/i,                                     intent: 'recall' },
-        { rex: /my name is\s+([a-zA-Z0-9_-]+)/i,                intent: 'provide_name' },
-        { rex: /(i like|i prefer)\s+(.+)/i,                      intent: 'provide_preference' },
-        { rex: /(how do you see me|how do you model me|know about me)/i, intent: 'ask_tom' },
-        { rex: /\b(thanks|thank you|appreciate|cheers)\b/i,      intent: 'gratitude' },
-        { rex: /\b(sorry|apologize|my bad|apologies)\b/i,        intent: 'user_apology' },
-        { rex: /\b(joke|funny|make me laugh|humor)\b/i,          intent: 'humor_request' },
-        { rex: /\b(continue|more|elaborate|explain further|go on)\b/i, intent: 'continue_topic' },
-        { rex: /\b(what time|current time|time is it)\b/i,       intent: 'time_query' },
-        { rex: /\b(export|download|training data|conversation log)\b/i, intent: 'export_data' },
-        { rex: /\b(metrics|accuracy|stats|how accurate)\b/i,     intent: 'ask_metrics' },
-        { rex: /\b(train neural|train nlu|train model)\b/i,      intent: 'train_neural' },
-        { rex: /\b(neural status|nlu status|is neural ready)\b/i, intent: 'ask_neural' },
-      ];
-    }
-
-    parse(input) {
-      let intent = 'chitchat';
-      const entities = [];
-
-      for (const rule of this._intentRules) {
-        const m = input.match(rule.rex);
-        if (m) {
-          intent = rule.intent;
-          for (let i = 1; i < m.length; i++) {
-            if (m[i]) entities.push(m[i].trim());
-          }
-          break;
-        }
-      }
-
-      const neural = NeuralNLU.getCachedIntent(input);
-      if (neural) {
-        MetaLog.log('neural', `Override: "${intent}" → "${neural.intent}" (conf: ${neural.confidence.toFixed(2)})`);
-        intent = neural.intent;
-      }
-
-      const sentiment = this.emotionModule.analyzeSentiment(input);
-      MetaLog.log('nlu', `Intent=${intent}, sentiment=${sentiment.label}`);
-      return { intent, entities, sentiment, raw: input };
-    }
-  }
-
-  /* ================================================================
-     SECTION 9 — UserModel
-     ================================================================ */
-  class UserModel {
-    constructor() {
-      this.name = null;
-      this.preferences = [];
-      this.moodScore   = 0;
-      this.messageCount = 0;
-      try {
-        const saved = sessionStorage.getItem('userModel_alex');
-        if (saved) Object.assign(this, JSON.parse(saved));
-      } catch (e) { /* ignore */ }
-    }
-
-    _save() {
-      try {
-        sessionStorage.setItem('userModel_alex', JSON.stringify({
-          name: this.name, preferences: this.preferences,
-          moodScore: this.moodScore, messageCount: this.messageCount
-        }));
-      } catch (e) { /* ignore */ }
-    }
-
-    updateFromInput(nluResult, rawInput) {
-      if (nluResult.intent === 'provide_name' && nluResult.entities[0]) {
-        this.name = nluResult.entities[0];
-      } else {
-        const nm = rawInput.match(/my name is\s+([A-Za-z0-9_-]+)/i);
-        if (nm) this.name = nm[1];
-      }
-
-      if (nluResult.intent === 'provide_preference' && nluResult.entities.length) {
-        this.preferences.push(nluResult.entities[nluResult.entities.length - 1]);
-      }
-      if (/short answer/i.test(rawInput))          this.preferences.push('short answers');
-      if (/more detail|technical/i.test(rawInput)) this.preferences.push('technical detail');
-
-      this.messageCount += 1;
-      const w = 1 / this.messageCount;
-      this.moodScore = (1 - w) * this.moodScore + w * (nluResult.sentiment.score || 0);
-
-      this._save();
-      MetaLog.log('usermodel', `Updated: name=${this.name}, mood=${this.moodScore.toFixed(2)}`);
-    }
-
-    summary() {
-      const moodDesc = this.moodScore > 0.3 ? 'generally positive'
-                     : this.moodScore < -0.3 ? 'generally negative'
-                     : 'mixed/neutral';
-      const namePart = this.name ? `named ${this.name}` : 'with unknown name';
-      const prefPart = this.preferences.length
-        ? `prefers ${[...new Set(this.preferences)].slice(-3).join(', ')}`
-        : 'no known preferences';
-      return `User ${namePart}, mood ${moodDesc}, ${prefPart}.`;
-    }
-  }
-
-  /* ================================================================
-     SECTION 10 — PolicyModule  [BUG FIXED: adjustPolicyOnTurn]
-     ================================================================ */
-  class PolicyModule {
-    constructor() {
-      this.verbosityLevel = 0.5;
-      this.humorLevel     = 0.3;
-      this.cautionLevel   = 0.4;
-      this._loadPolicy();
-      this._sync();
-    }
-
-    _clamp(v) { return Math.max(0, Math.min(1, v)); }
-
-    _loadPolicy() {
-      try {
-        const saved = JSON.parse(localStorage.getItem('alex_policy_weights'));
-        if (saved && typeof saved.verbosityLevel === 'number') {
-          this.verbosityLevel = this._clamp(saved.verbosityLevel);
-          this.humorLevel     = this._clamp(saved.humorLevel);
-          this.cautionLevel   = this._clamp(saved.cautionLevel);
-          MetaLog.log('policy', `Loaded: v=${this.verbosityLevel.toFixed(2)}, h=${this.humorLevel.toFixed(2)}, c=${this.cautionLevel.toFixed(2)}`);
-        }
-      } catch (e) { /* ignore */ }
-    }
-
-    _savePolicy() {
-      try {
-        localStorage.setItem('alex_policy_weights', JSON.stringify({
-          verbosityLevel: this.verbosityLevel,
-          humorLevel:     this.humorLevel,
-          cautionLevel:   this.cautionLevel
-        }));
-      } catch (e) { /* ignore */ }
-    }
-
-    _sync() {
-      selfModel.updateState({
-        policy: {
-          verbosityLevel: this.verbosityLevel,
-          humorLevel:     this.humorLevel,
-          cautionLevel:   this.cautionLevel
-        },
-        totalUpVotes:   selfModel.state.totalUpVotes,
-        totalDownVotes: selfModel.state.totalDownVotes
+      const extra = withFeedback
+        ? coordinator.logger.conversations
+            .filter(t => t.feedback==='up' && t.intent!=='chitchat')
+            .map(t => ({text:t.userInput, intent:t.intent}))
+        : [];
+      const total = NeuralNLU.SEED_DATA.length + extra.length;
+      if (prg) prg.textContent = `Training on ${total} samples…`;
+      await NeuralNLU.train(extra, (epoch, logs) => {
+        if (prg) prg.textContent = `Epoch ${epoch+1}/40 — loss: ${logs.loss.toFixed(3)}`;
       });
-    }
-
-    registerFeedback(type) {
-      if (type !== 'up' && type !== 'down') return;
-
-      if (type === 'up') {
-        selfModel.updateState({
-          totalUpVotes: selfModel.state.totalUpVotes + 1,
-          lastFeedback: 'up'
-        });
-        this.verbosityLevel = this._clamp(this.verbosityLevel + 0.04);
-        this.humorLevel     = this._clamp(this.humorLevel     + 0.03);
-        this.cautionLevel   = this._clamp(this.cautionLevel   - 0.02);
-      } else {
-        selfModel.updateState({
-          totalDownVotes: selfModel.state.totalDownVotes + 1,
-          lastFeedback: 'down'
-        });
-        this.cautionLevel   = this._clamp(this.cautionLevel   + 0.08);
-        this.verbosityLevel = this._clamp(this.verbosityLevel - 0.05);
-        this.humorLevel     = this._clamp(this.humorLevel     - 0.05);
-      }
-
-      this._sync();
-      this._savePolicy();
-      MetaLog.log('feedback', `type=${type}, policy=${JSON.stringify(selfModel.state.policy)}`);
-      renderStatusBar();
-    }
-
-    // ── FIXED: was broken with incomplete line ────────────────────
-    adjustPolicyOnTurn(intent, sentimentLabel) {
-      if (intent === 'ask_mood' || intent === 'ask_self') {
-        this.cautionLevel = this._clamp(this.cautionLevel - 0.05);
-      }
-      if (sentimentLabel === 'Negative') {
-        this.cautionLevel = this._clamp(this.cautionLevel + 0.08);
-        this.humorLevel   = this._clamp(this.humorLevel   - 0.05);
-      }
-      if (sentimentLabel === 'Positive') {
-        this.verbosityLevel = this._clamp(this.verbosityLevel + 0.03);
-      }
-      this._sync();
-    }
-
-    applyResponseStyle(text) {
-      let out = text;
-      if      (this.cautionLevel > 0.65) out = 'I might be mistaken, but ' + out;
-      else if (this.cautionLevel > 0.5)  out = 'It seems that ' + out;
-      if (this.verbosityLevel > 0.75) {
-        out += '\n\nFeel free to ask me to elaborate or show examples.';
-      }
-      if (this.humorLevel > 0.65) out += ' 🙂';
-      return out;
-    }
-  }
-
-  /* ================================================================
-     SECTION 10b — TrainingLogger  [FIXED: capped at 500 turns]
-     ================================================================ */
-  class TrainingLogger {
-    constructor() {
-      this.conversations = [];
-      this.MAX_TURNS = 500;
-    }
-
-    logTurn(userInput, botOutput, nluResult) {
-      this.conversations.push({
-        timestamp:  new Date().toISOString(),
-        userInput, botOutput,
-        feedback:   selfModel.state.lastFeedback,
-        intent:     nluResult.intent,
-        sentiment:  nluResult.sentiment.label,
-        sentScore:  nluResult.sentiment.score,
-        confidence: selfModel.state.confidence,
-        policy:     { ...selfModel.state.policy }
-      });
-      // Cap to prevent unbounded memory growth
-      if (this.conversations.length > this.MAX_TURNS) {
-        this.conversations.shift();
-      }
-    }
-
-    exportJSON() {
-      try {
-        const json = JSON.stringify(this.conversations, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href = url; a.download = `alex-training-${Date.now()}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        // Small delay before revoking for mobile browser compatibility
-        setTimeout(() => URL.revokeObjectURL(url), 150);
-        MetaLog.log('training', `Exported ${this.conversations.length} turns.`);
-        return `Training data exported — ${this.conversations.length} turn(s) downloaded as JSON.`;
-      } catch (e) {
-        MetaLog.log('training', `Export failed: ${e.message}`);
-        return 'Export failed — your browser may have blocked the download.';
-      }
-    }
-  }
-
-  /* ================================================================
-     SECTION 10c — TrainingMetrics
-     ================================================================ */
-  class TrainingMetrics {
-    constructor() {
-      this.intentFeedback = {};
-      this.totalResponses = 0;
-    }
-
-    record(intent, feedback) {
-      this.totalResponses++;
-      if (!this.intentFeedback[intent]) {
-        this.intentFeedback[intent] = { up: 0, down: 0, total: 0 };
-      }
-      this.intentFeedback[intent].total++;
-      if (feedback === 'up')   this.intentFeedback[intent].up++;
-      if (feedback === 'down') this.intentFeedback[intent].down++;
-    }
-
-    report() {
-      const up    = selfModel.state.totalUpVotes;
-      const down  = selfModel.state.totalDownVotes;
-      const total = up + down;
-      const ratio = total > 0 ? ((up / total) * 100).toFixed(1) : 'n/a';
-
-      let lines = [
-        `Overall approval: ${ratio}% (👍 ${up} / 👎 ${down} of ${total} rated)`,
-        `Total turns: ${this.totalResponses}`,
-        '',
-        'Per-intent breakdown:'
-      ];
-
-      for (const [intent, counts] of Object.entries(this.intentFeedback)) {
-        const pct = counts.total > 0
-          ? ((counts.up / counts.total) * 100).toFixed(0) + '%'
-          : 'unrated';
-        lines.push(`  ${intent}: ${pct} (${counts.up}↑ ${counts.down}↓ / ${counts.total})`);
-      }
-
-      if (Object.keys(this.intentFeedback).length === 0) {
-        lines.push('  No rated turns yet — use 👍/👎 to build metrics.');
-      }
-
-      return lines.join('\n');
-    }
-  }
-
-  /* ================================================================
-     SECTION 11 — Coordinator
-     ================================================================ */
-  class Coordinator {
-    constructor() {
-      this.memory     = new MemoryModule();
-      this.perception = new PerceptionModule();
-      this.emotion    = new EmotionModule();
-      this.limbic     = new LimbicSystem();
-      this.reasoning  = new ReasoningModule();
-      this.reflection = new SelfReflectionModule();
-      this.nlu        = new NLUModule(this.emotion);
-      this.userModel  = new UserModel();
-      this.policy     = new PolicyModule();
-      this.trainingLogger  = new TrainingLogger();
-      this.trainingMetrics = new TrainingMetrics();
-    }
-
-    _clampEmo(v) { return Math.max(0, Math.min(1, v)); }
-
-    process(input) {
-      MetaLog.log('input', `User: "${input.slice(0, 80)}"`);
-
-      const nlu      = this.nlu.parse(input);
-      const salience = this.limbic.detectSalience(input, nlu.sentiment, nlu.intent);
-      MetaLog.log('amygdala', `Salience: ${salience.salience.toFixed(2)} (threat: ${salience.threatLevel.toFixed(2)}, benefit: ${salience.benefitLevel.toFixed(2)})`);
-
-      selfModel.updateEmotions({ salience: salience.salience });
-
-      this.userModel.updateFromInput(nlu, input);
-      this.policy.adjustPolicyOnTurn(nlu.intent, nlu.sentiment.label);
-
-      const perceptionText = this.perception.perceive(input);
-      const reasoningText  = this.reasoning.decide(input);
-
-      let memPart = '';
-      if (nlu.intent === 'remember') {
-        const toRemember = nlu.entities[0] || input;
-        this.memory.store('long', 'lastInput', toRemember);
-        memPart = 'I will remember that in my long-term memory. ';
-      } else if (nlu.intent === 'recall') {
-        const recalled = this.memory.recall('long', 'lastInput');
-        memPart = recalled
-          ? `I recall you said: "${recalled}". `
-          : 'I cannot recall anything stored yet. ';
-      }
-
-      let base = '';
-      if (this.policy.verbosityLevel >= 0.65) {
-        base += perceptionText + '\n' + nlu.sentiment.description + '\n' + reasoningText + '\n';
-      } else {
-        base += reasoningText + ' ';
-      }
-      base += memPart;
-
-      if (nlu.intent === 'ask_self') {
-        base += `\nI am ${selfModel.identity.name}, version ${selfModel.identity.version}. ` +
-          `${selfModel.identity.description}. ` +
-          `Capabilities: ${selfModel.capabilities.join('; ')}. ` +
-          `Limitations: ${selfModel.limitations.join('; ')}.`;
-      }
-
-      if (nlu.intent === 'ask_mood') {
-        const e = selfModel.emotionalVector;
-        base += `\nCurrent mood vector — happiness: ${e.happiness.toFixed(2)}, ` +
-          `curiosity: ${e.curiosity.toFixed(2)}, frustration: ${e.frustration.toFixed(2)}, ` +
-          `engagement: ${e.engagement.toFixed(2)}, salience: ${e.salience.toFixed(2)}.`;
-      }
-
-      if (nlu.intent === 'ask_thoughts') {
-        base += '\n\n— Internal Process Trace (last 5 steps) —\n' + MetaLog.recent(5);
-      }
-
-      if (nlu.intent === 'ask_tom') {
-        base += `\nCurrent user model: ${this.userModel.summary()}`;
-      }
-
-      if (nlu.intent === 'gratitude') {
-        base += `\nYou're welcome! Glad I could help. Ask me anything.`;
-        selfModel.updateEmotions({ happiness: this._clampEmo(selfModel.emotionalVector.happiness + 0.1) });
-      }
-
-      if (nlu.intent === 'user_apology') {
-        base += `\nNo need to apologize — I'm here to help. What would you like to explore?`;
-      }
-
-      if (nlu.intent === 'humor_request') {
-        const jokes = [
-          "Why do programmers prefer dark mode? Because light attracts bugs. 🐛",
-          "A SQL query walks into a bar, walks up to two tables and asks... 'Can I join you?'",
-          "I told my neural network a joke. It didn't get it — said the training data was insufficient. 🤖",
-          "Why did the AI go to therapy? It had too many deep issues."
-        ];
-        base += `\n${jokes[Math.floor(Math.random() * jokes.length)]}`;
-        selfModel.updateEmotions({ happiness: this._clampEmo(selfModel.emotionalVector.happiness + 0.15) });
-      }
-
-      if (nlu.intent === 'continue_topic') {
-        const lastInput = this.memory.recall('short', 'recentInput');
-        base += lastInput
-          ? `\nContinuing from: "${lastInput.slice(0, 60)}…" — let me elaborate further.`
-          : `\nNo prior topic in short-term memory. What would you like me to expand on?`;
-      }
-
-      if (nlu.intent === 'time_query') {
-        base += `\nCurrent local time: ${new Date().toLocaleTimeString()}.`;
-      }
-
-      if (nlu.intent === 'export_data') {
-        base += `\n${this.trainingLogger.exportJSON()}`;
-      }
-
-      if (nlu.intent === 'ask_metrics') {
-        base += `\n\n— Training Metrics —\n${this.trainingMetrics.report()}`;
-      }
-
-      if (nlu.intent === 'ask_neural') {
-        const status = NeuralNLU.ready
-          ? `Neural NLU is active. Model loaded. Confidence threshold: 70%.`
-          : `Neural NLU not yet trained. Use the dev panel or say "train neural".`;
-        base += `\n${status}`;
-      }
-
-      if (nlu.intent === 'train_neural') {
-        base += `\nStarting neural NLU training on ${NeuralNLU.SEED_DATA.length} seed samples. ` +
-          `Watch the dev panel for progress…`;
-        const extraSamples = this.trainingLogger.conversations
-          .filter(t => t.feedback === 'up' && t.intent !== 'chitchat')
-          .map(t => ({ text: t.userInput, intent: t.intent }));
-        NeuralNLU.train(extraSamples, (epoch, logs) => {
-          MetaLog.log('neural', `Epoch ${epoch + 1}/40 — loss: ${logs.loss.toFixed(3)}, acc: ${(logs.acc ?? logs.accuracy ?? 0).toFixed(3)}`);
-        }).then(ok => {
-          MetaLog.log('neural', ok ? 'Training complete ✓' : 'Training failed ✗');
-        });
-      }
-
-      const lower = input.toLowerCase();
-      if (lower.includes('self-aware') || lower.includes('reflect') || lower.includes('introspect')) {
-        base += '\n' + this.reflection.reflect(base.slice(0, 100), nlu.sentiment.score);
-      }
-
-      if (this.userModel.name) {
-        base = `Hi ${this.userModel.name}! ` + base;
-      }
-
-      base = this.policy.applyResponseStyle(base.trim());
-      base += `\n[mood: happiness ${selfModel.emotionalVector.happiness.toFixed(2)}, salience ${selfModel.emotionalVector.salience.toFixed(2)}]`;
-
-      MetaLog.log('output', 'Response generated.');
-
-      this.limbic.encodeEpisode(input, base, nlu.sentiment, salience.salience,
-        { intent: nlu.intent, userMood: this.userModel.moodScore }
-      );
-
-      this.limbic.updateInteroception(selfModel.state.lastFeedback, {
-        totalUpVotes:   selfModel.state.totalUpVotes,
-        totalDownVotes: selfModel.state.totalDownVotes,
-        totalResponses: this.trainingMetrics.totalResponses
-      });
-
-      this.limbic.updateDrives(nlu, this.userModel, {
-        totalUpVotes:   selfModel.state.totalUpVotes,
-        totalDownVotes: selfModel.state.totalDownVotes,
-        totalResponses: this.trainingMetrics.totalResponses
-      });
-
-      this.limbic.consolidateMemories();
-
-      this.trainingLogger.logTurn(input, base, nlu);
-      this.trainingMetrics.record(nlu.intent, selfModel.state.lastFeedback);
-
-      return base || 'Processing complete. Tell me more.';
-    }
-  }
-
-  /* ================================================================
-     SECTION 12 — UI helpers
-     ================================================================ */
-  function moodFromHappiness(h) {
-    if (h >= 0.65) return { label: 'happy',      color: '#6af7a2' };
-    if (h <= 0.35) return { label: 'frustrated',  color: '#f76a6a' };
-    return               { label: 'neutral',      color: '#f7d76a' };
-  }
-
-  function renderStatusBar() {
-    const { happiness } = selfModel.emotionalVector;
-    const { label, color } = moodFromHappiness(happiness);
-    const pill  = document.getElementById('status-mood-pill');
-    const lbl   = document.getElementById('status-mood-label');
-    const votes = document.getElementById('status-votes');
-
-    if (pill)  { pill.style.backgroundColor = color; pill.style.boxShadow = `0 0 6px ${color}`; }
-    if (lbl)   lbl.textContent = `mood: ${label}`;
-    if (votes) votes.innerHTML = `👍 ${selfModel.state.totalUpVotes} &nbsp; 👎 ${selfModel.state.totalDownVotes}`;
-  }
-
-  function renderNeuromorphicStatus(coordinator) {
-    const limbicEl = document.getElementById('limbic-status');
-    const interoEl = document.getElementById('interoception-status');
-    const drivesEl = document.getElementById('drives-status');
-    const homeEl   = document.getElementById('homeostasis-status');
-    if (!limbicEl || !interoEl || !drivesEl || !homeEl) return;
-
-    const { amygdala, hippocampus, consolidationQueue, insula, hypothalamus } = coordinator.limbic;
-
-    limbicEl.innerHTML = `
-      <div class="neuro-stat"><span class="neuro-stat-label">Amygdala (salients)</span><span class="neuro-stat-value">${amygdala.recentSalients.length}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Hippocampus (episodes)</span><span class="neuro-stat-value">${hippocampus.episodes.length}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Consolidation queue</span><span class="neuro-stat-value">${consolidationQueue.length}</span></div>
-    `;
-
-    const bs = insula.bodyState;
-    interoEl.innerHTML = `
-      <div class="neuro-stat"><span class="neuro-stat-label">Energy</span><span class="neuro-stat-value">${bs.energyLevel.toFixed(2)}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Confidence</span><span class="neuro-stat-value">${bs.confidenceLevel.toFixed(2)}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Stress</span><span class="neuro-stat-value">${bs.stressLevel.toFixed(2)}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Social</span><span class="neuro-stat-value">${bs.socialEngagement.toFixed(2)}</span></div>
-    `;
-
-    const dr = hypothalamus.drives;
-    drivesEl.innerHTML = `
-      <div class="neuro-stat"><span class="neuro-stat-label">Competence</span><span class="neuro-stat-value">${dr.competence.toFixed(2)}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Autonomy</span><span class="neuro-stat-value">${dr.autonomy.toFixed(2)}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Relatedness</span><span class="neuro-stat-value">${dr.relatedness.toFixed(2)}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Curiosity</span><span class="neuro-stat-value">${dr.curiosity.toFixed(2)}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Coherence</span><span class="neuro-stat-value">${dr.coherence.toFixed(2)}</span></div>
-    `;
-
-    const hm = coordinator.limbic.getHomeostasis();
-    homeEl.innerHTML = `
-      <div class="neuro-stat"><span class="neuro-stat-label">Arousal</span><span class="neuro-stat-value">${hm.arousal}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Avg Drive</span><span class="neuro-stat-value">${hm.avgDrive}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Error</span><span class="neuro-stat-value">${hm.homeostasisError}</span></div>
-      <div class="neuro-stat"><span class="neuro-stat-label">Status</span><span class="neuro-stat-value">${hm.status}</span></div>
-    `;
-  }
-
-  function addMessage(text, isUser, coordinator) {
-    const chatWindow = document.getElementById('chat-window');
-    const msgDiv = document.createElement('div');
-    msgDiv.classList.add('message', isUser ? 'user-message' : 'bot-message');
-
-    if (!isUser) {
-      const { color } = moodFromHappiness(selfModel.emotionalVector.happiness);
-      msgDiv.style.borderLeftColor = color;
-    }
-
-    const textNode = document.createElement('span');
-    textNode.classList.add('msg-text');
-    textNode.textContent = text;
-    msgDiv.appendChild(textNode);
-
-    if (!isUser && coordinator) {
-      const feedbackRow = document.createElement('div');
-      feedbackRow.classList.add('feedback-row');
-      feedbackRow.setAttribute('aria-label', 'Rate this response');
-
-      const upBtn = document.createElement('button');
-      upBtn.textContent = '👍'; upBtn.setAttribute('aria-label', 'Thumbs up');
-
-      const dnBtn = document.createElement('button');
-      dnBtn.textContent = '👎'; dnBtn.setAttribute('aria-label', 'Thumbs down');
-
-      upBtn.addEventListener('click', () => {
-        coordinator.policy.registerFeedback('up');
-        msgDiv.style.borderLeftColor = moodFromHappiness(selfModel.emotionalVector.happiness).color;
-        renderStatusBar(); renderNeuromorphicStatus(coordinator);
-      });
-
-      dnBtn.addEventListener('click', () => {
-        coordinator.policy.registerFeedback('down');
-        msgDiv.style.borderLeftColor = moodFromHappiness(selfModel.emotionalVector.happiness).color;
-        renderStatusBar(); renderNeuromorphicStatus(coordinator);
-      });
-
-      feedbackRow.appendChild(upBtn);
-      feedbackRow.appendChild(dnBtn);
-      msgDiv.appendChild(feedbackRow);
-    }
-
-    chatWindow.appendChild(msgDiv);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-  }
-
-  /* ================================================================
-     SECTION 13 — Panel wiring
-     ================================================================ */
-  function wirePanel(headerId, toggleBtnId, bodyId) {
-    const header    = document.getElementById(headerId);
-    const toggleBtn = document.getElementById(toggleBtnId);
-    const body      = document.getElementById(bodyId);
-    let visible = true;
-
-    function toggle() {
-      visible = !visible;
-      body.style.display    = visible ? 'block' : 'none';
-      toggleBtn.textContent = visible ? '▾' : '▸';
-      if (header.hasAttribute('aria-expanded')) {
-        header.setAttribute('aria-expanded', String(visible));
-      }
-    }
-
-    toggleBtn.addEventListener('click', e => { e.stopPropagation(); toggle(); });
-    header.addEventListener('click',    e => { if (e.target !== toggleBtn) toggle(); });
-    header.addEventListener('keydown',  e => { if (e.key === 'Enter' || e.key === ' ') toggle(); });
-  }
-
-  // Special wiring for meta panel (uses MetaLog._panelVisible)
-  (function wireMetaPanel() {
-    const header    = document.getElementById('meta-panel-header');
-    const toggleBtn = document.getElementById('meta-toggle-btn');
-    const content   = document.getElementById('meta-panel-content');
-
-    function toggle() {
-      MetaLog._panelVisible = !MetaLog._panelVisible;
-      content.parentElement.style.display = MetaLog._panelVisible ? 'block' : 'none';
-      toggleBtn.textContent = MetaLog._panelVisible ? '▾' : '▸';
-      header.setAttribute('aria-expanded', String(MetaLog._panelVisible));
-      if (MetaLog._panelVisible) MetaLog._refreshPanel();
-    }
-
-    toggleBtn.addEventListener('click', e => { e.stopPropagation(); toggle(); });
-    header.addEventListener('click',    e => { if (e.target !== toggleBtn) toggle(); });
-    header.addEventListener('keydown',  e => { if (e.key === 'Enter' || e.key === ' ') toggle(); });
-  })();
-
-  wirePanel('neuro-header',     'neuro-toggle',    'neuro-body');
-  wirePanel('dev-panel-header', 'dev-toggle-btn',  'dev-panel-body');
-
-  /* ================================================================
-     SECTION 14 — Boot
-     ================================================================ */
-  (function boot() {
-    const inputEl = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-button');
-
-    function waitForNatural(timeoutMs = 5000, intervalMs = 100) {
-      return new Promise(resolve => {
-        if (typeof natural !== 'undefined') return resolve(true);
-        const deadline = Date.now() + timeoutMs;
-        const id = setInterval(() => {
-          if (typeof natural !== 'undefined') {
-            clearInterval(id); resolve(true);
-          } else if (Date.now() >= deadline) {
-            clearInterval(id); resolve(false);
-          }
-        }, intervalMs);
-      });
-    }
-
-    waitForNatural().then(async naturalReady => {
-      if (!naturalReady) {
-        console.warn('Natural.js did not load within timeout.');
-        MetaLog.log('system', 'Warning: Natural.js unavailable. Sentiment using keyword fallback.');
-      }
-
-      const coordinator = new Coordinator();
-      window._coordinator = coordinator;
-
-      const neuralStatusEl  = document.getElementById('neural-status');
-      const trainProgressEl = document.getElementById('train-progress');
-
-      function updateNeuralStatus() {
-        if (!neuralStatusEl) return;
-        neuralStatusEl.textContent = NeuralNLU.ready
-          ? '✓ Neural NLU active (IndexedDB model loaded)'
-          : '⚠ Neural NLU not trained — rule-based only';
-        neuralStatusEl.style.color = NeuralNLU.ready ? '#6af7a2' : '#f7a26a';
-      }
-
-      NeuralNLU.load().then(loaded => {
-        updateNeuralStatus();
-        MetaLog.log('system', loaded ? 'Neural NLU loaded from IndexedDB.' : 'No saved neural model.');
-      });
-
-      document.getElementById('btn-train-neural').addEventListener('click', async () => {
-        trainProgressEl.textContent = 'Training… epoch 0/40';
-        await NeuralNLU.train([], (epoch, logs) => {
-          trainProgressEl.textContent = `Epoch ${epoch + 1}/40 — loss: ${logs.loss.toFixed(3)}`;
-        });
-        trainProgressEl.textContent = NeuralNLU.ready
-          ? '✓ Training complete! Neural NLU active.'
-          : '✗ Training failed — check console.';
-        updateNeuralStatus();
-      });
-
-      document.getElementById('btn-train-with-feedback').addEventListener('click', async () => {
-        const extra = coordinator.trainingLogger.conversations
-          .filter(t => t.feedback === 'up' && t.intent !== 'chitchat')
-          .map(t => ({ text: t.userInput, intent: t.intent }));
-        const total = NeuralNLU.SEED_DATA.length + extra.length;
-        trainProgressEl.textContent = `Training on ${total} samples (${extra.length} from feedback)…`;
-        await NeuralNLU.train(extra, (epoch, logs) => {
-          trainProgressEl.textContent = `Epoch ${epoch + 1}/40 — loss: ${logs.loss.toFixed(3)}`;
-        });
-        trainProgressEl.textContent = NeuralNLU.ready
-          ? `✓ Done! ${total} samples, neural NLU active.`
-          : '✗ Training failed — check console.';
-        updateNeuralStatus();
-      });
-
-      MetaLog.log('system', `Alex online. Natural.js ready=${naturalReady}. Limbic system active.`);
-      renderStatusBar();
-
-      addMessage(
-        'ALEX online. Neuromorphic metacognitive agent running in-browser.\n' +
-        'Limbic system active: amygdala · hippocampus · insula · hypothalamus\n' +
-        (naturalReady ? '' : '⚠ Sentiment offline (CDN unavailable).\n') +
-        '\nTry:\n' +
-        '  "Who are you?" · "How do you feel?" · "Show thoughts"\n' +
-        '  "Tell me a joke" · "Remember: [something]" · "Recall"\n' +
-        '  "Metrics" · "Export training data" · "Neural status"\n' +
-        '\nUse the dev panel (left) to train the neural NLU.\n' +
-        'Watch the limbic panel for real-time neuromorphic dynamics.',
-        false, coordinator
-      );
-
-      MetaLog._refreshPanel();
-      renderNeuromorphicStatus(coordinator);
-
-      async function sendMessage() {
-        const text = inputEl.value.trim();
-        if (!text) return;
-
-        addMessage(text, true, null);
-        coordinator.memory.store('short', 'recentInput', text);
-        inputEl.value = '';
-        inputEl.style.height = 'auto';
-
-        await NeuralNLU.primeForInput(text);
-
-        setTimeout(() => {
-          let response;
-          try {
-            response = coordinator.process(text);
-          } catch (err) {
-            response = `Internal error: ${err.message}`;
-            MetaLog.log('error', err.message);
-          }
-          addMessage(response, false, coordinator);
-          renderStatusBar();
-          renderNeuromorphicStatus(coordinator);
-          MetaLog._refreshPanel();
-        }, 350);
-      }
-
-      sendBtn.addEventListener('click', sendMessage);
-
-      inputEl.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-      });
-
-      inputEl.addEventListener('input', () => {
-        inputEl.style.height = 'auto';
-        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
-      });
-
-      setInterval(() => { renderNeuromorphicStatus(coordinator); }, 2000);
+      if (prg) prg.textContent = NeuralNLU.ready
+        ? `✓ Done! ${total} samples.`
+        : '✗ Training failed.';
+      updateNeuralStatusUI(NeuralNLU.ready);
     });
-  })();
-  </script>
+  }
+
+  wireTrainButton('btn-train-neural',    'train-progress',   false);
+  wireTrainButton('btn-train-with-feedback','train-progress',true);
+  wireTrainButton('d-btn-train-neural',  'd-train-progress', false);
+  wireTrainButton('d-btn-train-feedback','d-train-progress', true);
+
+  MetaLog.log('system','Alex online. Inline sentiment active. No CDN required.');
+  renderStatusBar();
+
+  addMessage(
+    'ALEX online — fully self-contained, no CDN required.\n' +
+    'Limbic system: amygdala · hippocampus · insula · hypothalamus\n' +
+    'Sentiment: inline AFINN lexicon (works offline)\n\n' +
+    'Try:\n' +
+    '  "Who are you?" · "How do you feel?" · "Show thoughts"\n' +
+    '  "Tell me a joke" · "Remember: [something]" · "Recall"\n' +
+    '  "Metrics" · "Export training data" · "Neural status"\n\n' +
+    'Tap 🧬 Limbic · 🧠 Trace · ⚗️ Dev tabs below for system panels.',
+    false, coordinator
+  );
+
+  MetaLog._refreshPanel();
+  renderNeuro(coordinator);
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    addMessage(text, true, null);
+    coordinator.memory.store('short','recentInput',text);
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    if (NeuralNLU.ready) await NeuralNLU.primeForInput(text);
+
+    setTimeout(() => {
+      let response;
+      try {
+        response = coordinator.process(text);
+      } catch (err) {
+        response = `Internal error: ${err.message}`;
+        MetaLog.log('error', err.message);
+      }
+      addMessage(response, false, coordinator);
+      renderStatusBar();
+      renderNeuro(coordinator);
+      MetaLog._refreshPanel();
+    }, 280);
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  inputEl.addEventListener('keydown', e => {
+    if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 110) + 'px';
+  });
+
+  setInterval(() => renderNeuro(coordinator), 2000);
+})();
+</script>
 </body>
 </html>
