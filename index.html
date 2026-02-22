@@ -112,14 +112,18 @@
     #chat-window {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 12px;
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
       min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     #chat-window::-webkit-scrollbar { width: 3px; }
     #chat-window::-webkit-scrollbar-thumb { background: var(--c-border); }
+    #chat-window::-webkit-scrollbar-track { background: transparent; }
 
     /* ── Messages ─────────────────────── */
     .message {
@@ -132,6 +136,7 @@
       position: relative;
       font-size: 12px;
       animation: msgIn .15s ease-out both;
+      flex-shrink: 0;
     }
 
     @keyframes msgIn {
@@ -194,6 +199,8 @@
       padding: 8px 10px;
       background: var(--c-surface);
       border-top: 1px solid var(--c-border);
+      position: relative;
+      z-index: 10;
     }
 
     .input-prompt {
@@ -1412,7 +1419,14 @@ function addMessage(text, isUser, coordinator) {
   }
 
   win.appendChild(div);
-  win.scrollTop = win.scrollHeight;
+  
+  // FIXED: Improved scrolling to ensure input area stays visible
+  requestAnimationFrame(() => {
+    win.scrollTo({
+      top: win.scrollHeight,
+      behavior: 'smooth'
+    });
+  });
 }
 
 /* ================================================================
