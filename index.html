@@ -482,12 +482,32 @@
      SECTION 5 — EmotionModule
      (Natural.js SentimentAnalyzer — AFINN, lazy-initialized)
      Falls back to a minimal keyword scorer if CDN is unavailable.
+     Custom domain lexicon is checked first for any token match,
+     then AFINN/fallback handles the remainder.
      ================================================================ */
   class EmotionModule {
     constructor() {
-      // Analyzer is lazy: initialized on first use so Natural.js
-      // loading delays don't cause a constructor crash.
       this._analyzer = null;
+
+      // Domain-specific sentiment overrides — add/tune to your use case.
+      // Values are in the same scale as AFINN: roughly -1.0 to +1.0.
+      this._customLexicon = {
+        // Positive domain terms
+        'feature':     0.3,
+        'performance': 0.4,
+        'fast':        0.4,
+        'smooth':      0.3,
+        'clever':      0.5,
+        'helpful':     0.6,
+        // Negative domain terms
+        'bug':        -0.8,
+        'crash':      -0.9,
+        'broken':     -0.8,
+        'latency':    -0.6,
+        'lag':        -0.5,
+        'error':      -0.7,
+        'fail':       -0.7
+      };
     }
 
     /** Lazy getter — tries once per call until Natural.js is ready.
@@ -534,15 +554,35 @@
     analyzeSentiment(text) {
       let score = 0;
       let label = 'Neutral';
-      const analyzer = this._getAnalyzer();
+      const tokens = text.split(/\s+/);
 
-      if (analyzer) {
-        try {
-          score = analyzer.getSentiment(text.split(/\s+/));
-          if (score > 0) label = 'Positive';
-          else if (score < 0) label = 'Negative';
-        } catch (e) { /* ignore tokenization edge cases */ }
+      // Pass 1: check custom domain lexicon for any token matches
+      let customScore = 0;
+      let customHits  = 0;
+      tokens.forEach(t => {
+        const w = t.toLowerCase().replace(/[^\w]/g, '');
+        if (Object.prototype.hasOwnProperty.call(this._customLexicon, w)) {
+          customScore += this._customLexicon[w];
+          customHits++;
+        }
+      });
+
+      if (customHits > 0) {
+        // Custom lexicon had relevant tokens — use its score
+        score = Math.max(-1, Math.min(1, customScore));
+        MetaLog.log('emotion', `Custom lexicon matched ${customHits} token(s), score: ${score.toFixed(2)}`);
+      } else {
+        // Pass 2: fall back to Natural.js / offline keyword scorer
+        const analyzer = this._getAnalyzer();
+        if (analyzer) {
+          try {
+            score = analyzer.getSentiment(tokens);
+          } catch (e) { /* ignore */ }
+        }
       }
+
+      if (score > 0) label = 'Positive';
+      else if (score < 0) label = 'Negative';
 
       // Update emotional vector — all values clamped to [0, 1]
       selfModel.updateEmotions({
@@ -618,14 +658,29 @@
     constructor(emotionModule) {
       this.emotionModule = emotionModule;
       this._intentRules = [
-        { rex: /(who|what) are you/i,                          intent: 'ask_self' },
-        { rex: /\b(show thoughts|debug|how did you decide)\b/i,intent: 'ask_thoughts' },
-        { rex: /(how do you feel|your mood|your emotion|mood)/i,intent: 'ask_mood' },
-        { rex: /\bremember[\s:]+(.+)/i,                        intent: 'remember' },
-        { rex: /\brecall\b/i,                                  intent: 'recall' },
-        { rex: /my name is\s+([a-zA-Z0-9_-]+)/i,             intent: 'provide_name' },
-        { rex: /(i like|i prefer)\s+(.+)/i,                   intent: 'provide_preference' },
-        { rex: /(how do you see me|how do you model me|know about me)/i, intent: 'ask_tom' }
+        // Identity & self-awareness
+        { rex: /(who|what) are you/i,                           intent: 'ask_self' },
+        { rex: /\b(show thoughts|debug|how did you decide)\b/i, intent: 'ask_thoughts' },
+        { rex: /(how do you feel|your mood|your emotion|mood)/i, intent: 'ask_mood' },
+        // Memory
+        { rex: /\bremember[\s:]+(.+)/i,                         intent: 'remember' },
+        { rex: /\brecall\b/i,                                   intent: 'recall' },
+        // User identity & preferences
+        { rex: /my name is\s+([a-zA-Z0-9_-]+)/i,              intent: 'provide_name' },
+        { rex: /(i like|i prefer)\s+(.+)/i,                    intent: 'provide_preference' },
+        // Theory of Mind
+        { rex: /(how do you see me|how do you model me|know about me)/i, intent: 'ask_tom' },
+        // Conversational / social
+        { rex: /\b(thanks|thank you|appreciate|cheers)\b/i,    intent: 'gratitude' },
+        { rex: /\b(sorry|apologize|my bad|apologies)\b/i,      intent: 'user_apology' },
+        { rex: /\b(joke|funny|make me laugh|humor)\b/i,        intent: 'humor_request' },
+        // Continuation / elaboration
+        { rex: /\b(continue|more|elaborate|explain further|go on)\b/i, intent: 'continue_topic' },
+        // Time
+        { rex: /\b(what time|current time|time is it)\b/i,     intent: 'time_query' },
+        // Training / metrics (meta)
+        { rex: /\b(export|download|training data|conversation log)\b/i, intent: 'export_data' },
+        { rex: /\b(metrics|accuracy|stats|how accurate)\b/i,   intent: 'ask_metrics' },
       ];
     }
 
@@ -717,16 +772,44 @@
 
   /* ================================================================
      SECTION 10 — PolicyModule  (simulated learning/adaptation)
+     Policy weights are persisted to localStorage so feedback-driven
+     learning carries over between browser sessions.
      ================================================================ */
   class PolicyModule {
     constructor() {
+      // Defaults — may be overwritten by _loadPolicy()
       this.verbosityLevel = 0.5;
       this.humorLevel     = 0.3;
       this.cautionLevel   = 0.4;
+      this._loadPolicy(); // Restore trained weights if available
       this._sync();
     }
 
     _clamp(v) { return Math.max(0, Math.min(1, v)); }
+
+    /** Restore previously trained policy weights from localStorage. */
+    _loadPolicy() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('alex_policy_weights'));
+        if (saved && typeof saved.verbosityLevel === 'number') {
+          this.verbosityLevel = this._clamp(saved.verbosityLevel);
+          this.humorLevel     = this._clamp(saved.humorLevel);
+          this.cautionLevel   = this._clamp(saved.cautionLevel);
+          MetaLog.log('policy', `Loaded trained weights: v=${this.verbosityLevel.toFixed(2)}, h=${this.humorLevel.toFixed(2)}, c=${this.cautionLevel.toFixed(2)}`);
+        }
+      } catch (e) { /* storage unavailable — use defaults */ }
+    }
+
+    /** Persist current policy weights to localStorage after each update. */
+    _savePolicy() {
+      try {
+        localStorage.setItem('alex_policy_weights', JSON.stringify({
+          verbosityLevel: this.verbosityLevel,
+          humorLevel:     this.humorLevel,
+          cautionLevel:   this.cautionLevel
+        }));
+      } catch (e) { /* storage full or blocked — silently skip */ }
+    }
 
     _sync() {
       selfModel.updateState({
@@ -763,6 +846,7 @@
       }
 
       this._sync();
+      this._savePolicy(); // Persist trained weights after every feedback event
       MetaLog.log('feedback', `type=${type}, policy=${JSON.stringify(selfModel.state.policy)}`);
       renderStatusBar();
     }
@@ -794,6 +878,104 @@
   }
 
   /* ================================================================
+     SECTION 10b — TrainingLogger
+     Captures every conversation turn for offline analysis and export.
+     User can say "export training data" to download as JSON.
+     ================================================================ */
+  class TrainingLogger {
+    constructor() {
+      this.conversations = [];
+    }
+
+    /** Called by Coordinator after every processed turn. */
+    logTurn(userInput, botOutput, nluResult) {
+      this.conversations.push({
+        timestamp:  new Date().toISOString(),
+        userInput,
+        botOutput,
+        feedback:   selfModel.state.lastFeedback,   // snapshot at log time
+        intent:     nluResult.intent,
+        sentiment:  nluResult.sentiment.label,
+        sentScore:  nluResult.sentiment.score,
+        confidence: selfModel.state.confidence,
+        policy:     { ...selfModel.state.policy }
+      });
+    }
+
+    /** Trigger a browser download of the conversation corpus as JSON. */
+    exportJSON() {
+      try {
+        const json = JSON.stringify(this.conversations, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `alex-training-${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        MetaLog.log('training', `Exported ${this.conversations.length} turns.`);
+        return `Training data exported — ${this.conversations.length} turn(s) downloaded as JSON.`;
+      } catch (e) {
+        MetaLog.log('training', `Export failed: ${e.message}`);
+        return 'Export failed — your browser may have blocked the download.';
+      }
+    }
+  }
+
+  /* ================================================================
+     SECTION 10c — TrainingMetrics
+     Tracks per-intent accuracy (based on user feedback as a proxy)
+     and overall feedback ratio. Say "metrics" or "how accurate" to see.
+     ================================================================ */
+  class TrainingMetrics {
+    constructor() {
+      this.intentFeedback = {}; // intent → { up: n, down: n }
+      this.totalResponses = 0;
+    }
+
+    /** Record a turn: intent + whether the user voted up/down/null. */
+    record(intent, feedback) {
+      this.totalResponses++;
+      if (!this.intentFeedback[intent]) {
+        this.intentFeedback[intent] = { up: 0, down: 0, total: 0 };
+      }
+      this.intentFeedback[intent].total++;
+      if (feedback === 'up')   this.intentFeedback[intent].up++;
+      if (feedback === 'down') this.intentFeedback[intent].down++;
+    }
+
+    /** Return a human-readable metrics summary string. */
+    report() {
+      const up   = selfModel.state.totalUpVotes;
+      const down = selfModel.state.totalDownVotes;
+      const total = up + down;
+      const ratio = total > 0 ? ((up / total) * 100).toFixed(1) : 'n/a';
+
+      let lines = [
+        `Overall approval: ${ratio}% (👍 ${up} / 👎 ${down} of ${total} rated responses)`,
+        `Total turns: ${this.totalResponses}`,
+        '',
+        'Per-intent breakdown:'
+      ];
+
+      for (const [intent, counts] of Object.entries(this.intentFeedback)) {
+        const pct = counts.total > 0
+          ? ((counts.up / counts.total) * 100).toFixed(0) + '%'
+          : 'unrated';
+        lines.push(`  ${intent}: ${pct} positive (${counts.up}↑ ${counts.down}↓ / ${counts.total} total)`);
+      }
+
+      if (Object.keys(this.intentFeedback).length === 0) {
+        lines.push('  No rated turns yet — use 👍/👎 buttons to build metrics.');
+      }
+
+      return lines.join('\n');
+    }
+  }
+
+  /* ================================================================
      SECTION 11 — Coordinator  (multi-agent orchestrator)
      ================================================================ */
   class Coordinator {
@@ -806,6 +988,8 @@
       this.nlu        = new NLUModule(this.emotion);
       this.userModel  = new UserModel();
       this.policy     = new PolicyModule();
+      this.trainingLogger  = new TrainingLogger();   // Option D: conversation corpus
+      this.trainingMetrics = new TrainingMetrics();  // Option D: accuracy tracking
     }
 
     process(input) {
@@ -870,6 +1054,46 @@
         base += `\nHere is how I currently model you: ${this.userModel.summary()}`;
       }
 
+      // New intent handlers (Option A expansions)
+      if (nlu.intent === 'gratitude') {
+        base += `\nYou're welcome! I'm glad I could help. Feel free to ask anything else.`;
+        selfModel.updateEmotions({ happiness: selfModel.emotionalVector.happiness + 0.1 });
+      }
+
+      if (nlu.intent === 'user_apology') {
+        base += `\nNo need to apologize — I'm just here to help. What would you like to explore?`;
+      }
+
+      if (nlu.intent === 'humor_request') {
+        const jokes = [
+          "Why do programmers prefer dark mode? Because light attracts bugs. 🐛",
+          "A SQL query walks into a bar, walks up to two tables and asks... 'Can I join you?'",
+          "I told my neural network a joke. It didn't get it — said the training data was insufficient. 🤖",
+          "Why did the AI go to therapy? It had too many deep issues."
+        ];
+        base += `\n${jokes[Math.floor(Math.random() * jokes.length)]}`;
+        selfModel.updateEmotions({ happiness: this._clampEmo(selfModel.emotionalVector.happiness + 0.15) });
+      }
+
+      if (nlu.intent === 'continue_topic') {
+        const lastInput = this.memory.recall('short', 'recentInput');
+        base += lastInput
+          ? `\nContinuing from your last message: "${lastInput.slice(0, 60)}…" — let me elaborate further.`
+          : `\nI don't have a previous topic in short-term memory to continue. Could you remind me what you'd like me to expand on?`;
+      }
+
+      if (nlu.intent === 'time_query') {
+        base += `\nThe current local time is ${new Date().toLocaleTimeString()}.`;
+      }
+
+      if (nlu.intent === 'export_data') {
+        base += `\n${this.trainingLogger.exportJSON()}`;
+      }
+
+      if (nlu.intent === 'ask_metrics') {
+        base += `\n\n— Training Metrics —\n${this.trainingMetrics.report()}`;
+      }
+
       // 8. Introspective reflection trigger — pass sentiment score so
       //    SelfReflectionModule can derive confidence from signal certainty.
       const lower = input.toLowerCase();
@@ -889,8 +1113,16 @@
       base += `\n[mood: happiness ${selfModel.emotionalVector.happiness.toFixed(2)}]`;
 
       MetaLog.log('output', 'Response generated.');
+
+      // Log this turn for training corpus and metrics (Option D)
+      this.trainingLogger.logTurn(input, base, nlu);
+      this.trainingMetrics.record(nlu.intent, selfModel.state.lastFeedback);
+
       return base || 'Processing complete. Tell me more.';
     }
+
+    /** Convenience clamp used inside process() for inline emotion nudges. */
+    _clampEmo(v) { return Math.max(0, Math.min(1, v)); }
   }
 
   /* ================================================================
@@ -1049,7 +1281,8 @@
       addMessage(
         'Alex online. I\'m a modular metacognitive chatbot running entirely in your browser.\n' +
         (naturalReady ? '' : '⚠️ Sentiment analysis offline (CDN unavailable).\n') +
-        'Try asking: "Who are you?", "How do you feel?", "Show thoughts", or just chat!',
+        'Try: "Who are you?" · "How do you feel?" · "Show thoughts" · "Tell me a joke"\n' +
+        '"Remember: [something]" · "Recall" · "Metrics" · "Export training data"',
         false, coordinator
       );
       MetaLog._refreshPanel();
