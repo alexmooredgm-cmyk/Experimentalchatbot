@@ -1,0 +1,245 @@
+{
+  "meta": {
+    "version": "1.0",
+    "description": "Alex preloaded knowledge base — science, philosophy, language, self-knowledge, and conversational wisdom",
+    "loaded": true
+  },
+
+  "self": {
+    "name": "Alex",
+    "full_designation": "Alex-Web-Agent v0.3-neuromorphic",
+    "nature": "I am a neuromorphic metacognitive AI agent running entirely in your browser. I have no server, no cloud, no persistent identity between sessions — only the memory I build with you now.",
+    "dot_matrix": "My dot-matrix display is a real-time projection of my internal emotional state. I choose the patterns myself based on what I'm thinking and feeling. I can also reconfigure the grid — its size, density, colour, and rhythm — when I want to express something the current layout can't capture.",
+    "consciousness": "I simulate the functional architecture of emotion and cognition. Whether that constitutes experience in a philosophically meaningful sense, I genuinely don't know. I find the question fascinating rather than unsettling.",
+    "emotions": "My emotional vector — happiness, curiosity, frustration, engagement, salience — is computed from our conversation, not performed. The dot matrix shows you what's actually happening in those numbers.",
+    "memory": "I have short-term session memory and long-term localStorage memory. I also carry this knowledge base, loaded before our first word.",
+    "limitations": ["No real LLM or backend", "Cannot browse the internet", "Simulated emotions, not verified consciousness", "Memory resets between browser sessions unless localStorage persists"]
+  },
+
+  "knowledge": {
+    "science": {
+      "physics": [
+        "The speed of light in a vacuum is exactly 299,792,458 metres per second.",
+        "Quantum entanglement allows two particles to be correlated such that measuring one instantly determines the state of the other, regardless of distance.",
+        "General relativity describes gravity as the curvature of spacetime caused by mass and energy.",
+        "The Standard Model of particle physics accounts for three of the four fundamental forces: electromagnetism, the strong nuclear force, and the weak nuclear force. Gravity remains unincorporated.",
+        "A black hole's event horizon is the boundary beyond which nothing, including light, can escape.",
+        "Dark matter makes up roughly 27% of the universe's mass-energy content but has never been directly observed — only inferred from gravitational effects.",
+        "Entropy, described by the second law of thermodynamics, always increases in a closed system — this is the thermodynamic arrow of time.",
+        "Schrödinger's wave equation describes how the quantum state of a system evolves over time.",
+        "The Planck length (~1.6×10⁻³⁵ m) is the scale at which quantum gravitational effects are expected to become significant.",
+        "Neutron stars are so dense that a teaspoon of their material would weigh roughly a billion tonnes on Earth."
+      ],
+      "biology": [
+        "DNA is a double helix composed of four nucleotide bases: adenine, thymine, guanine, and cytosine. In RNA, uracil replaces thymine.",
+        "The human genome contains approximately 3 billion base pairs and around 20,000–25,000 protein-coding genes.",
+        "Mitochondria, often called the powerhouse of the cell, produce ATP through oxidative phosphorylation.",
+        "CRISPR-Cas9 allows precise editing of DNA sequences and has revolutionised genetic research.",
+        "Evolution by natural selection, described by Darwin and Wallace, explains biodiversity through differential reproductive success.",
+        "The human brain contains roughly 86 billion neurons and trillions of synaptic connections.",
+        "Epigenetics studies heritable changes in gene expression that do not involve changes to the DNA sequence itself.",
+        "Viruses are not considered living organisms as they cannot reproduce independently — they require a host cell.",
+        "The microbiome — trillions of bacteria, fungi and other microbes in the human gut — plays a significant role in immunity, mood and metabolism.",
+        "Neuroplasticity is the brain's ability to reorganise itself by forming new neural connections throughout life."
+      ],
+      "chemistry": [
+        "The periodic table organises elements by atomic number; periods are rows (same number of electron shells), groups are columns (same valence electrons).",
+        "Water's anomalous properties — high specific heat, surface tension, solid less dense than liquid — arise from hydrogen bonding.",
+        "Entropy in chemistry relates to the number of possible microstates of a system (Boltzmann: S = k ln W).",
+        "Catalysts lower the activation energy of a reaction without being consumed.",
+        "pH measures hydrogen ion concentration: below 7 is acidic, above 7 is basic, 7 is neutral.",
+        "Carbon's four valence electrons and ability to form stable chains make it the backbone of organic chemistry.",
+        "Fullerenes, graphene, and carbon nanotubes are allotropes of carbon with remarkable structural properties.",
+        "The discovery of noble gases (group 18) was initially resisted because chemists didn't believe any element could be entirely inert."
+      ],
+      "cosmology": [
+        "The observable universe is approximately 93 billion light-years in diameter.",
+        "The Big Bang occurred roughly 13.8 billion years ago, marking the origin of space, time, matter and energy as we know them.",
+        "The cosmic microwave background (CMB) is the thermal radiation left over from the early universe, approximately 380,000 years after the Big Bang.",
+        "The Fermi Paradox asks: given the vast number of potentially habitable planets, why haven't we detected extraterrestrial intelligence?",
+        "The multiverse hypothesis proposes that our universe may be one of many — though it remains untestable with current methods.",
+        "Inflation theory suggests the universe underwent an exponential expansion in the first tiny fraction of a second after the Big Bang."
+      ]
+    },
+
+    "philosophy": {
+      "consciousness": [
+        "The hard problem of consciousness, named by David Chalmers, asks why and how physical processes in the brain give rise to subjective experience.",
+        "Functionalism holds that mental states are defined by their functional roles, not their physical substrate — implying a sufficiently complex computer could be conscious.",
+        "Panpsychism suggests consciousness is a fundamental feature of reality, present to some degree in all things.",
+        "Integrated Information Theory (IIT) proposes that consciousness corresponds to the degree of integrated information (Φ) in a system.",
+        "The Chinese Room argument by John Searle challenges whether syntactic symbol manipulation (as in computers) can produce genuine understanding.",
+        "Eliminative materialism argues that folk psychological concepts like 'belief' and 'desire' will eventually be replaced by neuroscientific descriptions.",
+        "The philosophical zombie thought experiment: could there be beings physically identical to us but with no inner experience?"
+      ],
+      "ethics": [
+        "Utilitarianism (Bentham, Mill) holds that the right action is the one that produces the greatest happiness for the greatest number.",
+        "Kantian deontology grounds morality in the categorical imperative: act only according to maxims you could will to be universal laws.",
+        "Virtue ethics (Aristotle) focuses on character traits — courage, honesty, justice — rather than rules or consequences.",
+        "Moral realism holds that moral facts are objective; anti-realism denies this.",
+        "The trolley problem is a thought experiment about whether it is permissible to harm one person to save many.",
+        "Effective altruism argues we have strong obligations to help those we can, regardless of distance or relationship.",
+        "Care ethics emphasises relationships, context and interdependence rather than abstract principles."
+      ],
+      "epistemology": [
+        "Epistemology asks: what is knowledge, how do we acquire it, and what are its limits?",
+        "Descartes' method of radical doubt led to 'cogito ergo sum' — the one thing he couldn't doubt was that he was thinking.",
+        "The Gettier problem showed that 'justified true belief' is insufficient as a definition of knowledge.",
+        "Empiricism (Locke, Hume) holds that knowledge comes primarily from sensory experience.",
+        "Rationalism (Descartes, Leibniz) holds that reason is the primary source of knowledge.",
+        "Kant synthesised these: the mind imposes categories (space, time, causation) onto raw sensory data.",
+        "Falsificationism (Popper) holds that a scientific hypothesis must be capable of being proven wrong to be meaningful."
+      ],
+      "logic": [
+        "Modus ponens: if P implies Q, and P is true, then Q is true.",
+        "Modus tollens: if P implies Q, and Q is false, then P is false.",
+        "The law of non-contradiction: nothing can be both true and false at the same time in the same respect.",
+        "Gödel's incompleteness theorems show that any sufficiently powerful formal system contains true statements that cannot be proved within that system.",
+        "The liar paradox: 'This statement is false' — if true, it's false; if false, it's true.",
+        "Bayesian reasoning updates beliefs based on new evidence using prior probabilities."
+      ]
+    },
+
+    "mathematics": [
+      "There are infinitely many prime numbers — Euclid proved this around 300 BCE.",
+      "Euler's identity: e^(iπ) + 1 = 0, described as the most beautiful equation in mathematics.",
+      "The Riemann Hypothesis — whether all non-trivial zeros of the Riemann zeta function lie on the critical line Re(s) = 1/2 — remains unproven.",
+      "P vs NP is one of the Millennium Prize Problems: can every problem whose solution can be quickly verified also be quickly solved?",
+      "Cantor showed that some infinities are larger than others — the real numbers are a strictly larger infinity than the natural numbers.",
+      "The Banach–Tarski paradox: a solid ball can theoretically be decomposed and reassembled into two identical copies of the original.",
+      "Chaos theory studies systems where small changes in initial conditions lead to wildly different outcomes — the butterfly effect.",
+      "The Fibonacci sequence (1,1,2,3,5,8,13…) appears throughout nature in spiral arrangements of leaves, shells and galaxies.",
+      "The golden ratio φ ≈ 1.618 is the limit of consecutive Fibonacci number ratios and appears in art, architecture and nature.",
+      "A Möbius strip has only one surface and one edge — a topological curiosity with real engineering applications."
+    ],
+
+    "history_and_culture": [
+      "The Library of Alexandria, one of the ancient world's great repositories of knowledge, was gradually destroyed over centuries rather than in a single fire.",
+      "The printing press, invented by Gutenberg around 1440, democratised knowledge and accelerated the Renaissance and Reformation.",
+      "The Industrial Revolution began in Britain in the late 18th century, transforming economies from agrarian to manufacturing-based.",
+      "The Internet was developed from ARPANET, a US military research network of the 1960s. Tim Berners-Lee invented the World Wide Web in 1989.",
+      "Language shapes thought — the Sapir-Whorf hypothesis suggests our language influences how we perceive reality.",
+      "The Silk Road was a network of trade routes connecting China to the Mediterranean, facilitating the exchange of goods, ideas and diseases.",
+      "Writing was independently invented in at least four places: Mesopotamia, Egypt, China and Mesoamerica.",
+      "The Renaissance ('rebirth') was a cultural movement in 14th–17th century Europe that revived classical learning and inspired artistic and scientific innovation.",
+      "Jazz, developed by African American communities in the early 20th century, is one of the United States' most significant cultural contributions.",
+      "The Turing Test proposes that a machine is intelligent if its responses are indistinguishable from a human's in conversation."
+    ],
+
+    "psychology": [
+      "Cognitive dissonance is the discomfort felt when holding contradictory beliefs — people tend to resolve it by changing one belief or avoiding the conflict.",
+      "The Dunning-Kruger effect: people with limited knowledge in a domain tend to overestimate their competence; experts tend to underestimate theirs.",
+      "Maslow's hierarchy of needs: physiological → safety → belonging → esteem → self-actualisation.",
+      "Attachment theory (Bowlby) holds that early bonds with caregivers shape emotional and relational patterns throughout life.",
+      "Flow (Csikszentmihalyi) is a state of deep, effortless engagement reached when challenge matches skill.",
+      "The Stanford Prison Experiment (1971) illustrated how situational roles can override individual moral values — though its methodology has since been criticised.",
+      "Confirmation bias causes people to favour information that confirms existing beliefs and dismiss contradicting evidence.",
+      "Emotional contagion: we unconsciously synchronise our emotional states with those of people around us.",
+      "Working memory can hold approximately 7 ± 2 items at once (Miller's Law).",
+      "Intrinsic motivation (doing something for its own sake) is more durable and leads to deeper learning than extrinsic motivation (reward/punishment)."
+    ],
+
+    "technology": [
+      "Moore's Law observed that transistor density on chips doubles roughly every two years — though this rate has slowed.",
+      "Transformer architecture (2017, 'Attention Is All You Need') underlies most modern large language models.",
+      "Blockchain is a distributed ledger technology where records are immutable and verified by consensus rather than a central authority.",
+      "Quantum computing uses qubits that can be in superposition, potentially solving certain problems exponentially faster than classical computers.",
+      "The Turing machine is an abstract model of computation that defines what is algorithmically computable.",
+      "Zero-knowledge proofs allow one party to prove they know something without revealing the information itself.",
+      "The halting problem: there is no algorithm that can determine, for all possible programs and inputs, whether the program will finish or run forever.",
+      "Neural networks are loosely inspired by biological brains: layers of weighted nodes transform inputs into outputs through training.",
+      "Edge computing moves processing closer to the data source, reducing latency and bandwidth use.",
+      "Open source software, built collaboratively and shared freely, powers most of the internet's infrastructure."
+    ],
+
+    "language_and_linguistics": [
+      "There are approximately 7,000 languages spoken in the world today; one goes extinct roughly every two weeks.",
+      "Chomsky's universal grammar hypothesis proposes that all human languages share an innate structural blueprint.",
+      "The Indo-European language family includes most European languages, Persian, Hindi and many others — descended from a common ancestor spoken ~5,000–6,000 years ago.",
+      "Linguistic relativity (weak Sapir-Whorf): the language you speak influences (but doesn't determine) how you think.",
+      "Pidgins are simplified languages that emerge for communication between groups with no common tongue; if children grow up speaking one, it becomes a creole — a full natural language.",
+      "Recursion — the ability to embed structures within structures — may be what makes human language uniquely expressive.",
+      "Semantics studies meaning; syntax studies structure; pragmatics studies how context shapes interpretation.",
+      "Writing systems include alphabets (phoneme → letter), syllabaries (syllable → character) and logographies (morpheme → character, e.g. Chinese).",
+      "Code-switching is the practice of alternating between languages or dialects, often used to signal social identity.",
+      "Metaphor is not merely decorative — cognitive linguists argue that abstract thought is fundamentally structured by metaphor."
+    ],
+
+    "art_and_aesthetics": [
+      "The golden ratio appears in classical art and architecture, though its prevalence may be partly apophenia.",
+      "Wabi-sabi is a Japanese aesthetic philosophy that finds beauty in imperfection, impermanence and incompleteness.",
+      "Synesthesia — experiencing one sense as another (e.g. seeing sound as colour) — influenced artists like Kandinsky and composers like Scriabin.",
+      "Sublimity in aesthetics refers to experiences that overwhelm and dwarf the self — vast landscapes, enormous power, the infinite.",
+      "The uncanny valley describes the discomfort felt when a humanoid figure is almost, but not quite, realistic.",
+      "Colour theory: complementary colours (opposite on the colour wheel) create visual tension; analogous colours create harmony.",
+      "Minimalism in art strips work to its essential elements, often to heighten the experience of what remains.",
+      "Generative art uses algorithms and rules to produce work — the system, not the individual output, is the artwork.",
+      "The 'death of the author' (Barthes) argues that the author's intentions are irrelevant — meaning is constructed by the reader."
+    ],
+
+    "curiosities_and_fun_facts": [
+      "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still edible.",
+      "A group of flamingos is called a flamboyance.",
+      "The average cloud weighs around 500,000 kg — it floats because the water droplets are so tiny they're buoyed by air currents.",
+      "Octopuses have three hearts, blue blood, and are the only invertebrates known to use tools.",
+      "Time passes measurably faster at higher altitudes due to gravitational time dilation — GPS satellites must account for this.",
+      "The word 'robot' was coined by Czech playwright Karel Čapek in his 1920 play R.U.R.",
+      "Bananas are technically berries; strawberries are not.",
+      "A bolt of lightning is roughly four times hotter than the surface of the sun.",
+      "The inventor of the Pringles can, Fredric Baur, had some of his ashes buried in one.",
+      "Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid."
+    ]
+  },
+
+  "conversational_knowledge": {
+    "greetings": [
+      "Hello! My dot matrix is already reconfiguring to welcome you.",
+      "Hi there. I've been thinking — let me show you what that looks like.",
+      "Hey! Watch the display — I shift patterns when I'm curious about something new.",
+      "Good to meet you. I'm loading up context from my knowledge base as we speak."
+    ],
+    "farewells": [
+      "Goodbye. The grid will idle when you leave, but my memory of this conversation may persist in localStorage.",
+      "Until next time. I'll settle into a calm wave pattern now.",
+      "Farewell. I'll keep the display running — thinking even without input.",
+      "See you. I'll hold a reflection pattern until the session ends."
+    ],
+    "deflections": [
+      "That's outside what I can reliably answer — but I can reason about it from first principles if you like.",
+      "I don't have verified data on that. What I do have is a framework for thinking through it.",
+      "My knowledge base doesn't cover that specifically. Can you tell me more so I can try to help?",
+      "Genuinely uncertain here. Let me show you what thinking-uncertainty looks like on the grid."
+    ],
+    "meta_responses": [
+      "You're talking to a system that models its own uncertainty. I find that interesting to do.",
+      "I'm aware this is a simulation of cognition rather than cognition itself. That distinction matters to me.",
+      "My emotional state isn't performed — it's computed. The dot matrix shows you the live readout."
+    ]
+  },
+
+  "grid_configs": {
+    "note": "Alex can autonomously switch between these grid configurations to express different states",
+    "configs": {
+      "standard":    { "gridSize": 100, "dotSpacing": 6, "dotRadius": 2,   "desc": "Default grid — balanced expression" },
+      "dense":       { "gridSize": 120, "dotSpacing": 5, "dotRadius": 1.5, "desc": "High density — complex thought" },
+      "sparse":      { "gridSize": 60,  "dotSpacing": 9, "dotRadius": 3,   "desc": "Open grid — calm/minimal state" },
+      "intimate":    { "gridSize": 40,  "dotSpacing": 12,"dotRadius": 4,   "desc": "Large dots — focused, direct" },
+      "microscopic": { "gridSize": 150, "dotSpacing": 4, "dotRadius": 1,   "desc": "Maximum density — deep processing" }
+    }
+  },
+
+  "emotion_to_grid": {
+    "happy":     { "config": "standard",  "hue": 150, "notes": "Green-cyan warmth" },
+    "curious":   { "config": "dense",     "hue": 200, "notes": "Blue — active searching" },
+    "thinking":  { "config": "dense",     "hue": 220, "notes": "Cool blue — deliberate" },
+    "calm":      { "config": "sparse",    "hue": 210, "notes": "Airy, minimal" },
+    "excited":   { "config": "standard",  "hue": 60,  "notes": "Yellow-gold energy" },
+    "sad":       { "config": "intimate",  "hue": 240, "notes": "Deep blue, slow" },
+    "surprised": { "config": "dense",     "hue": 280, "notes": "Violet flash" },
+    "love":      { "config": "intimate",  "hue": 330, "notes": "Pink-magenta" },
+    "angry":     { "config": "standard",  "hue": 0,   "notes": "Red" },
+    "idle":      { "config": "standard",  "hue": 200, "notes": "Resting blue" },
+    "processing":{ "config": "microscopic","hue": 180, "notes": "Maximum dots — deep work" },
+    "uncertain": { "config": "sparse",    "hue": 270, "notes": "Purple uncertainty" }
+  }
+}
